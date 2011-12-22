@@ -1,4 +1,4 @@
-exports.start_replica = function (conf) {
+exports.start_replica = function(conf) {
   var time_start = new Date();
   var data_dir  = conf.get('data_dir');
   var seeds     = conf.get('seeds');
@@ -11,5 +11,6 @@ exports.start_replica = function (conf) {
   console.info("  seeds: " + seeds);
   console.info("  name: " + name);
 
-  return;
+  return {
+  }
 }

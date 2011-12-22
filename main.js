@@ -6,5 +6,14 @@ var nconf = require('nconf')
   .add('local',   { type: 'file', file: 'etc/local.json' })
   .add('default', { type: 'file', file: 'etc/default.json' });
 
-require(nconf.get('replicake') || './replicake')
-  .start_replica(nconf);
+var rep = require('./replicake').start_replica(nconf);
+
+var app = require('express').createServer();
+
+app.get('/', function(req, res) {
+  res.send('hello world, from replicake');
+});
+
+var port = nconf.get('port');
+app.listen(port);
+console.log("listening: " + port);
