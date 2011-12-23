@@ -27,7 +27,7 @@ exports.init_replica = function(conf) {
 
   on_transition(state, 'initial', 'warming',
                 function() {
-                  log_db_load(data_dir, name, conf.get('log_db'),
+                  log_db_open(data_dir, name, conf.get('log_db'),
                               function(err, log_db_in) {
                                 assert(log_db == null, 'log_db should be null')
                                   log_db = log_db_in;
@@ -53,9 +53,12 @@ exports.init_replica = function(conf) {
   on_transition(state, 'cooling', 'stopped', function() {});
 
   function cool() {
-    log_db_save(log_db, function() {
-                  go(state, 'stopped');
-                });
+    assert(log_db);
+    log_db.save(function() {
+        log_db.close();
+        log_db = null;
+        go(state, 'stopped');
+      });
   }
 
   var self = {
@@ -67,14 +70,11 @@ exports.init_replica = function(conf) {
 
 // Log DB helpers.
 
-function log_db_load(data_dir, name, log_db_conf, cb) {
-  var log_db = { data_dir: data_dir,
-                 name: name }
-  cb(false, log_db);
-}
-
-function log_db_save(log_db, cb) {
-  cb();
+function log_db_open(data_dir, name, log_db_conf, cb) {
+  log_db_conf      = log_db_conf      || {};
+  log_db_conf.kind = log_db_conf.kind || 'json';
+  return require('./log_db_' + log_db_conf.kind)
+           .log_db_open(data_dir, name, log_db_conf, cb);
 }
 
 // State machine helpers.
