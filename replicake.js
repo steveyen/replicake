@@ -18,6 +18,11 @@ exports.init_replica = function(conf) {
   console.info('  seeds: ' + seeds);
   console.info('  name: ' + name);
 
+  if (name == null || name.toString().length <= 0) {
+    console.error("ERROR: missing name for replicake configuration.");
+    return null;
+  }
+
   var state = { curr: 'initial' };
 
   on_transition(state, 'initial', 'warming',
@@ -62,8 +67,10 @@ exports.init_replica = function(conf) {
 
 // Log DB helpers.
 
-function log_db_load(data_dir, name, log_db, cb) {
-  cb(false, {});
+function log_db_load(data_dir, name, log_db_conf, cb) {
+  var log_db = { data_dir: data_dir,
+                 name: name }
+  cb(false, log_db);
 }
 
 function log_db_save(log_db, cb) {
