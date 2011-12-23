@@ -5,6 +5,8 @@ exports.run_replica = function(conf) {
 }
 
 exports.init_replica = function(conf) {
+  var log_db = null;
+
   var time_start = new Date();
   var data_dir  = conf.get('data_dir');
   var seeds     = conf.get('seeds');
@@ -17,34 +19,33 @@ exports.init_replica = function(conf) {
   console.info('  name: ' + name);
 
   var state = { curr: 'initial' };
-  var log_db = null;
 
-  from_to(state, 'initial', 'warming',
-          function() {
-            log_db_load(data_dir, name, conf.get('log_db'),
-                        function(err, log_db_in) {
-                          assert(log_db == null, 'log_db should be null')
-                          log_db = log_db_in;
-                          go(state, 'running');
-                        });
-          });
+  on_transition(state, 'initial', 'warming',
+                function() {
+                  log_db_load(data_dir, name, conf.get('log_db'),
+                              function(err, log_db_in) {
+                                assert(log_db == null, 'log_db should be null')
+                                  log_db = log_db_in;
+                                go(state, 'running');
+                              });
+                });
 
-  from_to(state, 'warming', 'running',
-          function() {
-            assert(log_db);
-            // Concurrently...
-            // -- find and/or help choose leader
-            // -- start paxos participation / log replica
-            // -- continually catchup on log holes
-            // -- help others catchup on log holes
-            // -- take local snapshots
-            // -- garbage collect old log entries
-            // -- handle configuration changes
-          });
+  on_transition(state, 'warming', 'running',
+                function() {
+                  assert(log_db);
+                  // Concurrently...
+                  // -- find and/or help choose leader
+                  // -- start paxos participation / log replica
+                  // -- continually catchup on log holes
+                  // -- help others catchup on log holes
+                  // -- take local snapshots
+                  // -- garbage collect old log entries
+                  // -- handle configuration changes
+                });
 
-  from_to(state, 'warming', 'cooling', cool);
-  from_to(state, 'running', 'cooling', cool);
-  from_to(state, 'cooling', 'stopped', function() {});
+  on_transition(state, 'warming', 'cooling', cool);
+  on_transition(state, 'running', 'cooling', cool);
+  on_transition(state, 'cooling', 'stopped', function() {});
 
   function cool() {
     log_db_save(log_db, function() {
@@ -62,14 +63,16 @@ exports.init_replica = function(conf) {
 // Log DB helpers.
 
 function log_db_load(data_dir, name, log_db, cb) {
+  cb(false, {});
 }
 
 function log_db_save(log_db, cb) {
+  cb();
 }
 
 // State machine helpers.
 
-function from_to(state, from_state, to_state, cb) {
+function on_transition(state, from_state, to_state, cb) {
   state.transitions = state.transitions || {};
   assert(state.transitions[from_state + ' => ' + to_state] == null);
   state.transitions[from_state + ' => ' + to_state] = cb;
