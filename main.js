@@ -6,7 +6,7 @@ var nconf = require('nconf')
   .add('local',   { type: 'file', file: 'etc/local.json' })
   .add('default', { type: 'file', file: 'etc/default.json' });
 
-var rep = require('./replicake').start_replica(nconf);
+var rep = require('./replicake').run_replica(nconf);
 
 var app = require('express').createServer();
 
