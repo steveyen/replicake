@@ -1,10 +1,6 @@
 var assert = require('assert');
 
-exports.run_replica = function(conf) {
-  return exports.init_replica(conf).go('warming');
-}
-
-exports.init_replica = function(conf) {
+exports.open_replica = function(conf, log_db_module) {
   var log_db = null;
 
   var time_start = new Date();
@@ -23,16 +19,17 @@ exports.init_replica = function(conf) {
     return null;
   }
 
-  var state = { curr: 'initial' };
+  var state = { curr: 'opened' };
 
-  on_transition(state, 'initial', 'warming',
+  on_transition(state, 'opened', 'warming',
                 function() {
-                  log_db_open(data_dir, name, conf.get('log_db'),
-                              function(err, log_db_in) {
-                                assert(log_db == null, 'log_db should be null')
-                                  log_db = log_db_in;
-                                go(state, 'running');
-                              });
+                  log_db_module.log_db_open(data_dir, name, conf.get('log_db'),
+                                            function(err, log_db_in) {
+                                              assert(log_db == null,
+                                                     'log_db should be null');
+                                              log_db = log_db_in;
+                                              go(state, 'running');
+                                            });
                 });
 
   on_transition(state, 'warming', 'running',
@@ -43,6 +40,7 @@ exports.init_replica = function(conf) {
                   // -- start paxos participation / log replica
                   // -- continually catchup on log holes
                   // -- help others catchup on log holes
+                  // -- apply fully received log entries
                   // -- take local snapshots
                   // -- garbage collect old log entries
                   // -- handle configuration changes
@@ -50,32 +48,24 @@ exports.init_replica = function(conf) {
 
   on_transition(state, 'warming', 'cooling', cool);
   on_transition(state, 'running', 'cooling', cool);
-  on_transition(state, 'cooling', 'stopped', function() {});
+  on_transition(state, 'cooling', 'closed', function() {});
 
   function cool() {
     assert(log_db);
     log_db.save(function() {
         log_db.close();
         log_db = null;
-        go(state, 'stopped');
+        go(state, 'closed');
       });
   }
 
   var self = {
-    'go': function(to_state) { go(state, to_state); return self; }
+    'go': function(to_state) { go(state, to_state); return self; },
+    'warm': function() { self.go("warming"); return self; }
   };
 
   return self;
 };
-
-// Log DB helpers.
-
-function log_db_open(data_dir, name, log_db_conf, cb) {
-  log_db_conf      = log_db_conf      || {};
-  log_db_conf.kind = log_db_conf.kind || 'json';
-  return require('./log_db_' + log_db_conf.kind)
-           .log_db_open(data_dir, name, log_db_conf, cb);
-}
 
 // State machine helpers.
 
