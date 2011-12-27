@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+var assert = require('assert');
+
 var nconf = require('nconf')
   .argv()
   .env()
@@ -9,16 +11,17 @@ var nconf = require('nconf')
 var log_db_conf   = nconf.get('log_db') || {};
 var log_db_module = require('./log_db_' + (log_db_conf.kind || 'json'));
 
-var rep = require('./replicake').open_replica(nconf, log_db_module)
-                                .warm();
+var exp = require('express').createServer();
+var rep = require('./replicake').open_replica(nconf, log_db_module, exp);
 
-var app = require('express').createServer();
-
-app.get('/', function(req, res) {
+exp.get('/', function(req, res) {
   res.send('hello world, from replicake');
 });
 
 var port = nconf.get('port');
-app.listen(port);
 console.log("listening: " + port);
+exp.listen(port);
+
+rep.warm();
+
 

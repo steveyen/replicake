@@ -1,6 +1,6 @@
 var assert = require('assert');
 
-exports.open_replica = function(conf, log_db_module) {
+exports.open_replica = function(conf, log_db_module, routes) {
   var log_db = null;
 
   var time_start = new Date();
@@ -21,6 +21,10 @@ exports.open_replica = function(conf, log_db_module) {
 
   var state = { curr: 'opened' };
 
+  var paxos_proposer = null;
+  var paxos_acceptor = null;
+  var paxos_learner = null;
+
   on_transition(state, 'opened', 'warming',
                 function() {
                   log_db_module.log_db_open(data_dir, name, conf.get('log_db'),
@@ -35,6 +39,7 @@ exports.open_replica = function(conf, log_db_module) {
   on_transition(state, 'warming', 'running',
                 function() {
                   assert(log_db);
+
                   // Concurrently...
                   // -- find and/or help choose leader
                   // -- start paxos participation / log replica
