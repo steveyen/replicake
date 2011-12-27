@@ -9,7 +9,8 @@ var nconf = require('nconf')
 var log_db_conf   = nconf.get('log_db') || {};
 var log_db_module = require('./log_db_' + (log_db_conf.kind || 'json'));
 
-var rep = require('./replicake').open_replica(nconf, log_db_module).warm();
+var rep = require('./replicake').open_replica(nconf, log_db_module)
+                                .warm();
 
 var app = require('express').createServer();
 
