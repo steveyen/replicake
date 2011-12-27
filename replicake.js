@@ -1,3 +1,12 @@
+// Given a set of nodes...
+// - subsets of those nodes participate in 1 or more immutable 'configurations'.
+// - these configurations are created over time as nodes are added/removed.
+// - multiple configurations might be running concurrently
+//   and may overlap in their usage of nodes.
+// - a configuration has a replica running on each participating node.
+// - a replica might be started or running or finished or defunct
+//   w.r.t. its configuration.
+//
 var assert = require('assert');
 
 exports.open_replica = function(conf, log_db_module, routes) {
@@ -5,13 +14,11 @@ exports.open_replica = function(conf, log_db_module, routes) {
 
   var time_start = new Date();
   var data_dir  = conf.get('data_dir');
-  var seeds     = conf.get('seeds');
   var name      = conf.get('name');
 
   console.info('replicake...')
   console.info('  time_start: ' + time_start.toJSON());
   console.info('  data_dir: ' + data_dir);
-  console.info('  seeds: ' + seeds);
   console.info('  name: ' + name);
 
   if (name == null || name.toString().length <= 0) {
@@ -76,24 +83,34 @@ exports.open_replica = function(conf, log_db_module, routes) {
                 function(req, res) { go(state, message, req, res); });
   }
 
-  on_transition(state, 'running', 'leader_ping_req', leader_ping_req, 'running');
-  on_transition(state, 'running', 'leader_ping_res', leader_ping_res, 'running');
-  on_transition(state, 'running', 'leader_ping_timeout', leader_ping_timout, 'running');
-  on_transition(state, 'running', 'catchup_req', catchup_req, 'running');
-  on_transition(state, 'running', 'catchup_res', catchup_res, 'running');
-  on_transition(state, 'running', 'catchup_timeout', catchup_timeout, 'running');
+  on_transition(state, 'running', ['running', 'leader_ping_req'], leader_ping_req);
+  on_transition(state, 'running', ['running', 'leader_ping_res'], leader_ping_res);
+  on_transition(state, 'running', ['running', 'leader_ping_timeout'], leader_ping_timeout);
 
-  on_transition(state, 'running', 'leader_race_run', todo, 'running');
-  on_transition(state, 'running', 'leader_race_win', todo, 'running');
-  on_transition(state, 'running', 'leader_race_lose', todo, 'running');
-  on_transition(state, 'running', 'leader_race_timeout', todo, 'running');
+  on_transition(state, 'running', ['running', 'catchup_req'], catchup_req);
+  on_transition(state, 'running', ['running', 'catchup_res'], catchup_res);
+  on_transition(state, 'running', ['running', 'catchup_timeout'], catchup_timeout);
 
-  on_transition(state, 'running', 'log_entry_learned', todo, 'running');
-  on_transition(state, 'running', 'log_gc_timeout', todo, 'running');
+  on_transition(state, 'running', ['running', 'leader_race_run'], todo);
+  on_transition(state, 'running', ['running', 'leader_race_win'], todo);
+  on_transition(state, 'running', ['running', 'leader_race_lose'], todo);
+  on_transition(state, 'running', ['running', 'leader_race_timeout'], todo);
 
-  on_transition(state, 'running', 'new_config', todo, 'running');
+  on_transition(state, 'running', ['running', 'log_entry_learned'], todo);
+  on_transition(state, 'running', ['running', 'log_gc_timeout'], todo);
 
-  on_transition(state, 'running', 'snapshot_timeout', todo, 'running');
+  on_transition(state, 'running', ['running', 'new_config'], todo);
+
+  on_transition(state, 'running', ['running', 'snapshot_timeout'], todo);
+
+  var max_defunct_config = null;
+
+  on_transition(state, 'running', ['running', 'config_join'], todo);
+  on_transition(state, 'running', ['running', 'config_join_request'], todo);
+  on_transition(state, 'running', ['running', 'config_finished'], todo);
+  on_transition(state, 'running', ['running', 'config_defunct'], todo);
+  on_transition(state, 'running', ['running', 'config_created'], todo);
+  on_transition(state, 'running', ['running', 'last_entry_executed'], todo);
 
   function leader_ping_req() {};
   function leader_ping_res() {};
@@ -117,10 +134,12 @@ exports.open_replica = function(conf, log_db_module, routes) {
 
 // State machine helpers.
 
-function on_transition(state, from_state, to_state, cb, to_state_actual) {
+function on_transition(state, from_state, to_state, cb) {
   state.transitions = state.transitions || {};
-  assert(state.transitions[from_state + ' => ' + to_state] == null);
-  state.transitions[from_state + ' => ' + to_state] = [cb, to_state_actual];
+  var to_state_name = typeof(to_state) == "string" ? to_state : to_state[1];
+  var to_state_actual = typeof(to_state) == "string" ? to_state : to_state[0];
+  assert(state.transitions[from_state + ' => ' + to_state_name] == null);
+  state.transitions[from_state + ' => ' + to_state_name] = [cb, to_state_actual];
 }
 
 function go(state, to_state, arg0, arg1) {
