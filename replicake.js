@@ -1,11 +1,11 @@
 // Given a set of nodes...
-// - subsets of those nodes participate in 1 or more immutable 'configurations'.
-// - these configurations are created over time as nodes are added/removed.
-// - multiple configurations might be running concurrently
+// - subsets of those nodes participate in 1 or more immutable 'rosters'.
+// - new rosters are created linearly over time as nodes are added/removed.
+// - multiple rosters might be running concurrently
 //   and may overlap in their usage of nodes.
-// - a configuration has a replica running on each participating node.
+// - on each participating node in a roster, there's a replica.
 // - a replica might be started or running or finished or defunct
-//   w.r.t. its configuration.
+//   w.r.t. its roster.
 //
 var assert = require('assert');
 
@@ -22,7 +22,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
   console.info('  name: ' + name);
 
   if (name == null || name.toString().length <= 0) {
-    console.error("ERROR: missing name for replicake configuration.");
+    console.error("ERROR: missing name for replicake node.");
     return null;
   }
 
@@ -53,7 +53,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
                   // -- apply fully received log entries
                   // -- take local snapshots
                   // -- garbage collect old log entries
-                  // -- handle configuration changes
+                  // -- handle roster changes
                 });
 
   on_transition(state, 'warming', 'cooling', cool);
@@ -97,17 +97,17 @@ exports.open_replica = function(conf, log_db_module, routes) {
   running_event('log_entry_learned', todo);
   running_event('log_gc_timeout', todo);
 
-  running_event('new_config', todo);
+  running_event('new_roster', todo);
 
   running_event('snapshot_timeout', todo);
 
-  var max_defunct_config = null;
+  var max_defunct_roster = null;
 
-  running_event('config_join', todo);
-  running_event('config_join_request', todo);
-  running_event('config_finished', todo);
-  running_event('config_defunct', todo);
-  running_event('config_created', todo);
+  running_event('roster_join', todo);
+  running_event('roster_join_request', todo);
+  running_event('roster_finished', todo);
+  running_event('roster_defunct', todo);
+  running_event('roster_created', todo);
   running_event('last_entry_executed', todo);
 
   function running_event(name, cb) {
