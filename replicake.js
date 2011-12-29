@@ -83,34 +83,36 @@ exports.open_replica = function(conf, log_db_module, routes) {
                 function(req, res) { go(state, message, req, res); });
   }
 
-  on_transition(state, 'running', ['running', 'leader_ping_req'], leader_ping_req);
-  on_transition(state, 'running', ['running', 'leader_ping_res'], leader_ping_res);
-  on_transition(state, 'running', ['running', 'leader_ping_timeout'], leader_ping_timeout);
+  running_event('leader_ping_req', leader_ping_req);
+  running_event('leader_ping_res', leader_ping_res);
+  running_event('leader_ping_timeout', leader_ping_timeout);
 
-  on_transition(state, 'running', ['running', 'catchup_req'], catchup_req);
-  on_transition(state, 'running', ['running', 'catchup_res'], catchup_res);
-  on_transition(state, 'running', ['running', 'catchup_timeout'], catchup_timeout);
+  running_event('catchup_req', catchup_req);
+  running_event('catchup_res', catchup_res);
+  running_event('catchup_timeout', catchup_timeout);
 
-  on_transition(state, 'running', ['running', 'leader_race_run'], todo);
-  on_transition(state, 'running', ['running', 'leader_race_win'], todo);
-  on_transition(state, 'running', ['running', 'leader_race_lose'], todo);
-  on_transition(state, 'running', ['running', 'leader_race_timeout'], todo);
+  running_event('election_start', todo);
+  running_event('election_announce', todo);
 
-  on_transition(state, 'running', ['running', 'log_entry_learned'], todo);
-  on_transition(state, 'running', ['running', 'log_gc_timeout'], todo);
+  running_event('log_entry_learned', todo);
+  running_event('log_gc_timeout', todo);
 
-  on_transition(state, 'running', ['running', 'new_config'], todo);
+  running_event('new_config', todo);
 
-  on_transition(state, 'running', ['running', 'snapshot_timeout'], todo);
+  running_event('snapshot_timeout', todo);
 
   var max_defunct_config = null;
 
-  on_transition(state, 'running', ['running', 'config_join'], todo);
-  on_transition(state, 'running', ['running', 'config_join_request'], todo);
-  on_transition(state, 'running', ['running', 'config_finished'], todo);
-  on_transition(state, 'running', ['running', 'config_defunct'], todo);
-  on_transition(state, 'running', ['running', 'config_created'], todo);
-  on_transition(state, 'running', ['running', 'last_entry_executed'], todo);
+  running_event('config_join', todo);
+  running_event('config_join_request', todo);
+  running_event('config_finished', todo);
+  running_event('config_defunct', todo);
+  running_event('config_created', todo);
+  running_event('last_entry_executed', todo);
+
+  function running_event(name, cb) {
+    on_transition(state, 'running', ['running', name], cb);
+  }
 
   function leader_ping_req() {};
   function leader_ping_res() {};
