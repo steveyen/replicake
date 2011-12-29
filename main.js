@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-var assert = require('assert');
-
 var nconf = require('nconf')
   .argv()
   .env()
