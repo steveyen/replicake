@@ -59,9 +59,9 @@ exports.open_replica = function(conf, log_db_module, routes) {
                   // -- handle roster changes
                 });
 
-  on_transition(state, 'warming', 'cooling', cool);
   on_transition(state, 'running', 'cooling', cool);
-  on_transition(state, 'cooling', 'closed', function() {});
+  on_transition(state, 'warming', 'cooling', cool);
+  on_transition(state, 'cooling', 'closed', function() { assert(log_db == null); });
 
   function cool() {
     assert(log_db);
