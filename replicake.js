@@ -29,20 +29,20 @@ exports.open_replica = function(conf, log_db_module, routes) {
     return null;
   }
 
-  var state = { curr: 'opening' };
+  var node_state = { curr: 'opening' };
 
-  on_transition(state, 'opening', 'warming',
+  on_transition(node_state, 'opening', 'warming',
                 function() {
                   log_db_module.log_db_open(data_dir, name, conf.get('log_db'),
                                             function(err, log_db_in) {
                                               assert(log_db == null,
                                                      'log_db should be null');
                                               log_db = log_db_in;
-                                              go(state, 'running');
+                                              go(node_state, 'running');
                                             });
                 });
 
-  on_transition(state, 'warming', 'running',
+  on_transition(node_state, 'warming', 'running',
                 function() {
                   assert(log_db);
 
@@ -59,17 +59,43 @@ exports.open_replica = function(conf, log_db_module, routes) {
                   // -- handle roster changes
                 });
 
-  on_transition(state, 'running', 'cooling', cool);
-  on_transition(state, 'warming', 'cooling', cool);
-  on_transition(state, 'cooling', 'closed', function() { assert(log_db == null); });
+  on_transition(node_state, 'running', 'cooling', cool);
+  on_transition(node_state, 'warming', 'cooling', cool);
+  on_transition(node_state, 'cooling', 'closed', function() { assert(log_db == null); });
 
   function cool() {
     assert(log_db);
     log_db.save(function() {
         log_db.close();
         log_db = null;
-        go(state, 'closed');
+        go(node_state, 'closed');
       });
+  }
+
+  var roster_replica_map = {}
+
+  function load_roster_replica(roster_id) {
+    return mk_roster_replica(roster_id, null).load();
+  }
+  function start_roster_replica(roster_id, prev_roster_id) {
+    return mk_roster_replica(roster_id, prev_roster_id).start();
+  }
+
+  function mk_roster_replica(roster_id, prev_roster_id) {
+    assert(roster_replica_map[roster_id] == null);
+
+    var roster_replica_state = { curr: 'start' };
+
+    on_transition(roster_replica_state, 'start',   'warming', todo);
+    on_transition(roster_replica_state, 'warming', 'running', todo);
+    on_transition(roster_replica_state, 'running', 'cooling', todo);
+    on_transition(roster_replica_state, 'cooling', 'emd', todo);
+
+    var roster_replica = roster_replica_map[roster_id] = {
+      'load':  function() { go(roster_replica_state, 'warming'); return roster_replica; },
+      'start': function() { go(roster_replica_state, 'warming'); return roster_replica; },
+    }
+    return roster_replica;
   }
 
   var paxos_proposer = null;
@@ -83,7 +109,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
 
   function routes_register(message) {
     routes.post('/' + message,
-                function(req, res) { go(state, message, req, res); });
+                function(req, res) { go(node_state, message, req, res); });
   }
 
   running_event('leader_ping_req', leader_ping_req);
@@ -114,7 +140,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
   running_event('last_entry_executed', todo);
 
   function running_event(name, cb) {
-    on_transition(state, 'running', ['running', name], cb);
+    on_transition(node_state, 'running', ['running', name], cb);
   }
 
   function leader_ping_req() {};
@@ -130,7 +156,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
   function todo() {};
 
   var self = {
-    'go': function(to_state) { go(state, to_state); return self; },
+    'go': function(to_state) { go(node_state, to_state); return self; },
     'warm': function() { self.go("warming"); return self; }
   };
 
