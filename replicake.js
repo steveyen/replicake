@@ -16,16 +16,16 @@ exports.open_replica = function(conf, log_db_module, routes) {
   var log_db = null;
 
   var time_start = new Date();
-  var data_dir  = conf.get('data_dir');
-  var name      = conf.get('name');
+  var node_name  = conf.get('node_name');
+  var data_dir   = conf.get('data_dir');
 
   console.info('replicake...')
-  console.info('  time_start: ' + time_start.toJSON());
-  console.info('  data_dir: ' + data_dir);
-  console.info('  name: ' + name);
+  console.info('  time_start = ' + time_start.toJSON());
+  console.info('  node_name  = ' + node_name);
+  console.info('  data_dir   = ' + data_dir);
 
-  if (name == null || name.toString().length <= 0) {
-    console.error("ERROR: missing name for replicake node.");
+  if (node_name == null || node_name.toString().length <= 0) {
+    console.error("ERROR: missing node_name for replicake node.");
     return null;
   }
 
@@ -33,7 +33,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
 
   on_transition(node_state, 'opening', 'warming',
                 function() {
-                  log_db_module.log_db_open(data_dir, name, conf.get('log_db'),
+                  log_db_module.log_db_open(data_dir, node_name, conf.get('log_db'),
                                             function(err, log_db_in) {
                                               assert(log_db == null,
                                                      'log_db should be null');
@@ -72,7 +72,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
       });
   }
 
-  var roster_replica_map = {}
+  var roster_replica_map = {}; // A node tracks its roster_replica's.
 
   function load_roster_replica(roster_id) {
     return mk_roster_replica(roster_id, null).load();
@@ -89,7 +89,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
     on_transition(roster_replica_state, 'start',   'warming', todo);
     on_transition(roster_replica_state, 'warming', 'running', todo);
     on_transition(roster_replica_state, 'running', 'cooling', todo);
-    on_transition(roster_replica_state, 'cooling', 'emd', todo);
+    on_transition(roster_replica_state, 'cooling', 'end', todo);
 
     var roster_replica = roster_replica_map[roster_id] = {
       'load':  function() { go(roster_replica_state, 'warming'); return roster_replica; },
