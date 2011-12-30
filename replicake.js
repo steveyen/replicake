@@ -7,6 +7,9 @@
 // - a replica might be started or running or finished or defunct
 //   w.r.t. its roster.
 //
+// cluster ----------------------------< node
+// cluster ---< roster ---< replica >--- node
+//
 var assert = require('assert');
 
 exports.open_replica = function(conf, log_db_module, routes) {
