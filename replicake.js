@@ -1,18 +1,19 @@
 // Given a set of nodes...
 // - subsets of those nodes participate in 1 or more immutable 'rosters'.
-// - new rosters are created linearly over time as nodes are added/removed.
-// - multiple rosters might be running concurrently
-//   and may overlap in their usage of nodes.
-// - on each participating node in a roster, there's a replica.
-// - a replica might be started or running or finished or defunct
+// - new rosters are created sequentially over time as nodes are added/removed.
+// - multiple rosters, however, might be running concurrently
+//   and may overlap in their usage of nodes, as newer rosters
+//   take over from older rosters.
+// - on each participating node, for each roster, there's a roster_member object.
+// - a roster_member might be started or running or finished or defunct
 //   w.r.t. its roster.
 //
-// cluster ----------------------------< node
-// cluster ---< roster ---< replica >--- node
+// cluster ----------------------------------< node
+// cluster ---< roster ---< roster_member >--- node
 //
 var assert = require('assert');
 
-exports.open_replica = function(conf, log_db_module, routes) {
+exports.open_node = function(conf, log_db_module, routes) {
   var log_db = null;
 
   var time_start = new Date();
@@ -29,6 +30,7 @@ exports.open_replica = function(conf, log_db_module, routes) {
     return null;
   }
 
+  // Each node has a state machine.
   var node_state = { curr: 'opening' };
 
   on_transition(node_state, 'opening', 'warming',
@@ -72,30 +74,32 @@ exports.open_replica = function(conf, log_db_module, routes) {
       });
   }
 
-  var roster_replica_map = {}; // A node tracks its roster_replica's.
+  var roster_member_map = {}; // Keys are roster_id; values are roster_member objects.
+  var max_defunct_roster_member_id = null;
 
-  function load_roster_replica(roster_id) {
-    return mk_roster_replica(roster_id, null).load();
+  function load_roster_member(roster_id) {
+    return mk_roster_member(roster_id, null).load();
   }
-  function start_roster_replica(roster_id, prev_roster_id) {
-    return mk_roster_replica(roster_id, prev_roster_id).start();
+  function start_roster_member(roster_id, prev_roster_id) {
+    return mk_roster_member(roster_id, prev_roster_id).start();
   }
 
-  function mk_roster_replica(roster_id, prev_roster_id) {
-    assert(roster_replica_map[roster_id] == null);
+  function mk_roster_member(roster_id, prev_roster_id) {
+    assert(roster_member_map[roster_id] == null);
 
-    var roster_replica_state = { curr: 'start' };
+    // Each roster_member has its own state machine.
+    var roster_member_state = { curr: 'start' };
 
-    on_transition(roster_replica_state, 'start',   'warming', todo);
-    on_transition(roster_replica_state, 'warming', 'running', todo);
-    on_transition(roster_replica_state, 'running', 'cooling', todo);
-    on_transition(roster_replica_state, 'cooling', 'end', todo);
+    on_transition(roster_member_state, 'start',   'warming', todo);
+    on_transition(roster_member_state, 'warming', 'running', todo);
+    on_transition(roster_member_state, 'running', 'cooling', todo);
+    on_transition(roster_member_state, 'cooling', 'end', todo);
 
-    var roster_replica = roster_replica_map[roster_id] = {
-      'load':  function() { go(roster_replica_state, 'warming'); return roster_replica; },
-      'start': function() { go(roster_replica_state, 'warming'); return roster_replica; },
+    var roster_member = roster_member_map[roster_id] = {
+      'load':  function() { go(roster_member_state, 'warming'); return roster_member; },
+      'start': function() { go(roster_member_state, 'warming'); return roster_member; },
     }
-    return roster_replica;
+    return roster_member;
   }
 
   var paxos_proposer = null;
@@ -129,8 +133,6 @@ exports.open_replica = function(conf, log_db_module, routes) {
   running_event('new_roster', todo);
 
   running_event('snapshot_timeout', todo);
-
-  var max_defunct_roster = null;
 
   running_event('roster_join', todo);
   running_event('roster_join_request', todo);
