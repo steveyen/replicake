@@ -5,11 +5,12 @@
 //   and may overlap in their usage of nodes, as newer rosters
 //   take over from older rosters.
 // - on each participating node, for each roster, there's a roster_member object.
-// - a roster_member might be started or running or finished or defunct
-//   w.r.t. its roster.
 //
-// cluster ----------------------------------< node
-// cluster ---< roster ---< roster_member >--- node
+// Below, quoted items are 'concepts', distributed in nature.
+// Unquoted items are concrete, with object/implementation.
+//
+// 'cluster' ------------------------------------< node
+// 'cluster' ---< 'roster' ---< roster_member >--- node
 //
 var assert = require('assert');
 
