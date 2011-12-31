@@ -1,9 +1,8 @@
 // Given a set of nodes...
-// - subsets of those nodes participate in 1 or more immutable 'rosters'.
+// - subsets of those nodes participate in 1 or more 'rosters'.
 // - new rosters are created sequentially over time as nodes are added/removed.
-// - multiple rosters, however, might be running concurrently
-//   and may overlap in their usage of nodes, as newer rosters
-//   take over from older rosters.
+// - that is, every time the node population changes, we create a new roster,
+//   which eventually takes over from the current, old roster.
 // - on each participating node, for each roster, there's a roster_member object.
 //
 // Below, quoted items are 'concepts', distributed in nature.
@@ -62,6 +61,10 @@ exports.open_node = function(conf, log_db_module, routes) {
                   // -- handle roster changes
                 });
 
+
+  on_transition(node_state, 'running', 'paused', function() { assert(log_db); });
+  on_transition(node_state, 'paused', 'running', function() { assert(log_db); });
+
   on_transition(node_state, 'running', 'cooling', cool);
   on_transition(node_state, 'warming', 'cooling', cool);
   on_transition(node_state, 'cooling', 'closed', function() { assert(log_db == null); });
@@ -90,11 +93,27 @@ exports.open_node = function(conf, log_db_module, routes) {
 
     // Each roster_member has its own state machine.
     var roster_member_state = { curr: 'start' };
+    var finished_bcast = null;
 
     on_transition(roster_member_state, 'start',   'warming', todo);
+    on_transition(roster_member_state, 'warming', 'finished', todo);
     on_transition(roster_member_state, 'warming', 'running', todo);
     on_transition(roster_member_state, 'running', 'cooling', todo);
-    on_transition(roster_member_state, 'cooling', 'end', todo);
+    on_transition(roster_member_state, 'cooling', 'last_entry_executed',
+                  function () {
+                    go(roster_member_state, 'finished');
+                  });
+    on_transition(roster_member_state, 'last_entry_executed', 'finished',
+                  function () {
+                    assert(finished_bcast == null);
+                    finished_cast = bcast_periodically('finished');
+                  });
+    on_transition(roster_member_state, 'finished', 'defunct',
+                  function () {
+                    assert(finished_bcast);
+                    finished_bcast.stop();
+                    finished_bcast = null;
+                  });
 
     var roster_member = roster_member_map[roster_id] = {
       'load':  function() { go(roster_member_state, 'warming'); return roster_member; },
@@ -140,7 +159,6 @@ exports.open_node = function(conf, log_db_module, routes) {
   running_event('roster_finished', todo);
   running_event('roster_defunct', todo);
   running_event('roster_created', todo);
-  running_event('last_entry_executed', todo);
 
   function running_event(name, cb) {
     on_transition(node_state, 'running', ['running', name], cb);

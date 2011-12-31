@@ -1,0 +1,280 @@
+to handle a dynamically changing sets of nodes...
+
+given a set of nodes...
+  a subset of those nodes participate in a 'configuration'.
+  new configurations are created over time as nodes are added/removed.
+  multiple configurations might be running concurrently
+    and may overlap in their usage of nodes.
+  a node might participate concurrently in one or more configurations.
+  a configuration has a replica running on each participating node.
+    replica might be started or finished or defunct w.r.t. its configuration.
+
+on {join, ConfNum, ...}
+  where ConfNum > MaxDefunctConfNum
+        -> replica_start(ConfNum).
+
+on {Cmd, ConfNum, Replica, ...}
+  where ConfNum > MaxDefunctConfNum
+    and Cmd in [finished, heartbeat, elect]
+    and not in replica of {ConfNum, Replica}
+        -> reply {join_request, ConfNum}.
+
+on {client_command, ConfNum, ...}
+  where ConfNum <= MaxDefunctConfNum
+        -> reply {new_configuration, CurrentConf}.
+
+on {_, ConfNum, ...}
+  where not in replica of {ConfNum, ...}
+        -> reply {defunct, ConfNum | Rest}.
+
+on {defunct, ConfNum, ...}
+        -> conf_defunct(ConfNum).
+
+on_conf_created(ConfNum)
+        -> conf_bcast(ConfNum, join)
+
+on_last_slot_executed(ConfNum)
+        -> periodically(conf_bcast(successor(ConfNum), finished))
+
+on {finished, ConfNum, ...}
+        -> if current_checkpoint >= starting_state then
+             reply {ready}
+           else
+             reply {need_starting_state}
+           end.
+
+on {ready, ConfNum}
+        -> record_ready(ConfNum);
+           if quorum(successor(CurrentConfNum)) then
+             conf_defunct(CurrentConfNum)
+           end.
+
+on {join_request, ConfNum}
+        -> reply {join, ConfNum}.
+
+------------
+how are leaders chosen in paxos?
+  once chosen..
+    leaders have a short-term lease to allow for leader stability.
+
+------------
+add a restart_counter to each ballot number...
+  ballot is...
+    run counter (most significant end, incremented often)
+    proposer id
+    restart counter (incremented each time propser is started)
+
+from GAE datastore tech talk
+  consistent performance > low latency
+    low latency + inconsistent performance != low latency
+    developers can program around slower if expected
+  fully automatic failover is good
+
+-------
+auto testing/checking paxos
+  events...
+    what message should i deliver next?
+    sould i make a copy of this message for repeated delivery?
+  given a set of messages, what is the expected outcome?
+    no asserts hit
+    and learners have learned the right thing (the same value)
+  implementation ideas
+    1) need a paxos implementation that can be cloned or snapshotted
+      so that the test system can rollback and explore
+      different interleavings of messages and events.
+    2) generate test script, like qunit
+
+auto testing RSM
+  need similar model exploration against RSM
+  eventually, all replicas should end up in same state,
+    playing the same log events, possibly at different speeds.
+
+--------
+proposer(proposerId, slotId, acceptors, val) {
+  ballot = initial_ballot(proposerId);
+
+  start() ->
+    promises_received = {};
+    promised_val = null;
+    promised_ballot = 0;
+    accepted_val = null;
+    broadcast(REQ_PREPARE, acceptors, slotId, ballot);
+    goto(tally_prepare_responses, RESET_TIMEOUT);;
+
+  tally_prepare_responses(TIMEOUT) ->
+    ballot.increment(proposerId);
+    goto(start);;
+
+  tally_prepare_responses(RES_PREPARED, promise) ->
+    if (promise.ballot.equals(ballot)) {
+      promises_received.add(RES_PREPARED, promise);
+      if (promise.value && promise.ballot.gt(promised_ballot)) {
+        promised_val = promise.value;
+        promised_ballot = promised.ballot;
+      }
+      if (quorum_reached(promises_received)) {
+        broadcast(REQ_ACCEPT, acceptors, slotId, promised_ballot, RESET_TIMEOUT);
+        goto(tally_accept_responses)
+      }
+    } else {
+      // Drop the message.
+    }
+    ;;
+
+  tally_prepare_responses(RES_NACK) ->
+    // Some other proposer won?
+
+  tally_accept_responses(TIMEOUT) ->
+    ballot.increment(proposerId);
+    goto(start);;
+
+  tally_accept_responses(RES_ACCEPTED, args) ->
+    tally.count_vote(RES_ACCEPTED, args);
+    if (quorum_reached(tally)) {
+      goto(end)
+    }
+    ;;
+}
+
+acceptor:
+
+learner:
+
+----------------------
+RSM startup...
+  read current config.
+  load/create log db.
+  concurrently...
+    find and/or help choose leader
+    start paxos participation / log replica
+    continually catchup on log holes
+    help others catchup on log holes
+    take local snapshots
+    garbage collect old log entries
+    handle configuration changes
+
+-----------
+
+  running -> paused state?
+
+-----------
+
+-- DSL ideas
+
+failure modes
+
+down node
+bouncing node
+slow node
+slow node, one-way only
+slow disk, fast network
+slow disk, slow network
+full cluster reboot
+node addition
+node removal
+node upgrade
+node maintenance
+  software online patch
+  software offline patch
+  disk swap
+  node swap
+node too outdated
+rolling upgrade
+  wrong version
+replica promotion
+active demotion
+ip change
+time change
+  Y2K
+throttling
+  oom
+  temp oom
+  backoff
+read only replica
+read only mode
+drain to disk for controlled shutdown
+drain to peers
+warmup
+warmup up from disk
+warmup from peers (more disk heads)
+  warmth-sourcing
+migrating shard
+shard splitting
+shard coallescing
+maintenance
+  vacuum/compaction/file-reorg/GC
+  index rebuild
+incremental backup
+decremental restore
+decremental restore, reversed / LIFO
+corruption detection
+multitenancy
+allocator fragmentation - 4k value buffers
+bit rot - checksums
+compression
+sendfile() optimization
+- protocol buffers / thrift as on-disk format
+
+------------------------
+
+state machine thoughts
+
+node
+  active vs replica
+  read-write vs read-only vs write-only
+    vs voting-only (not participating in RSM app requests)
+    vs survey-only (not participating in RSM app requests,
+                    watching the voting action, but not voting)
+  wanted state
+    alive vs dead
+  actual state
+    warming or running vs cooling or stopped
+  health
+    red     vs red-yellow | green-yellow  vs green
+    stopped vs warming      slow/flapping vs running
+                not-ready                            [no ops]
+                 not-fully-ready                     [read-only-ops]
+                  (decremental restore)
+                             read-only-ops
+                                              read-only-ops
+
+  getting-promoted to active
+  getting-demoted to replica
+
+cluster
+  quorum vs non-quorum
+  stable vs growing vs shrinking vs swapping
+  nodes wanted vs nodes actual vs strangers
+
+'down' is how outsiders might see a node,
+but a node never sees itself as down.
+
+node-self states...
+   booting
+     --[config-loaded]-->
+     --[cluster rejoined]--> (does this need to be here?)
+     --[leader re-elected]--> (does this need to be here?)
+     --[wanted state found/received]-->
+   booted
+
+wanted states...
+   running
+   running,read-only
+   running,voting-only
+   running,survey-only
+   stopped
+   stopped,reboot
+
+RSM-specific states...
+   catching up log
+     file-level
+     entry-level
+   serving up log
+   stuck!
+     queues growing!
+       perhaps I'm snapshoting!
+     no more disk space!
+   corruption!
+     checksum mismatch!
+   conneciton lost!
+   connection bounce!
