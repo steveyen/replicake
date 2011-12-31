@@ -1,12 +1,8 @@
 // Given a set of nodes...
-// - subsets of those nodes participate in 1 or more 'rosters'.
-// - new rosters are created sequentially over time as nodes are added/removed.
-// - that is, every time the node population changes, we create a new roster,
-//   which eventually takes over from the current, old roster.
-// - on each participating node, for each roster, there's a roster_member object.
 //
-// Below, quoted items are 'concepts', distributed in nature.
-// Unquoted items are concrete, with object/implementation.
+// - Overlapping subsets of the nodes participate in 1 or more 'rosters'.
+// - We create new rosters sequentially over time whenever we add/remove nodes.
+// - A newly created roster eventually takes over from the previous roster.
 //
 // 'cluster' ------------------------------------< node
 // 'cluster' ---< 'roster' ---< roster_member >--- node
@@ -20,7 +16,7 @@ exports.open_node = function(conf, log_db_module, routes) {
   var node_name  = conf.get('node_name');
   var data_dir   = conf.get('data_dir');
 
-  console.info('replicake...')
+  console.info('replicake node...')
   console.info('  time_start = ' + time_start.toJSON());
   console.info('  node_name  = ' + node_name);
   console.info('  data_dir   = ' + data_dir);
@@ -30,8 +26,7 @@ exports.open_node = function(conf, log_db_module, routes) {
     return null;
   }
 
-  // Each node has a state machine.
-  var node_state = { curr: 'opening' };
+  var node_state = { curr: 'opening' }; // A replicake node has a state machine.
 
   on_transition(node_state, 'opening', 'warming',
                 function() {
@@ -67,7 +62,7 @@ exports.open_node = function(conf, log_db_module, routes) {
 
   on_transition(node_state, 'running', 'cooling', cool);
   on_transition(node_state, 'warming', 'cooling', cool);
-  on_transition(node_state, 'cooling', 'closed', function() { assert(log_db == null); });
+  on_transition(node_state, 'cooling', 'closed', function() { assert(!log_db); });
 
   function cool() {
     assert(log_db);
@@ -78,7 +73,12 @@ exports.open_node = function(conf, log_db_module, routes) {
       });
   }
 
-  var roster_member_map = {}; // Keys are roster_id; values are roster_member objects.
+  // A roster_member object represents the participation of this node
+  // in a given roster (or roster_id).  This node can participate in
+  // multiple rosters at the same time; hence, we can have multiple
+  // roster_member objects.
+  //
+  var roster_member_map = {}; // Keys = roster_id; values = roster_member objects.
   var max_defunct_roster_member_id = null;
 
   function load_roster_member(roster_id) {
@@ -91,7 +91,7 @@ exports.open_node = function(conf, log_db_module, routes) {
   function mk_roster_member(roster_id, prev_roster_id) {
     assert(roster_member_map[roster_id] == null);
 
-    // Each roster_member has its own state machine.
+    // A roster_member has a state machine.
     var roster_member_state = { curr: 'start' };
     var finished_bcast = null;
 
@@ -204,3 +204,4 @@ function go(state, to_state, arg0, arg1) {
   state.curr = state.transitions[transition][1] || to_state;
   state.transitions[transition][0](arg0, arg1);
 }
+
