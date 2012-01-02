@@ -4,9 +4,10 @@
 var fs   = require('fs');
 var path = require('path');
 
-exports.log_db_open = function(data_dir, name, log_db_conf, cb) {
+exports.open = function(data_dir, name, conf, cb) {
   var data = {};
-  var self = { 'close': function() { self = null; },
+  var self = { // API is defined here in self.
+               'close': function() { self = null; },
                'save': save };
 
   var log_dir  = data_dir + '/data-' + name;

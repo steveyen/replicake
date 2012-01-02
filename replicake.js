@@ -30,13 +30,13 @@ exports.open_node = function(conf, storage, comm) {
 
   on_transition(node_state, 'opening', 'warming',
                 function() {
-                  storage.log_db_open(data_dir, node_name, conf.get('log_db'),
-                                      function(err, log_db_in) {
-                                        assert(log_db == null,
-                                               'log_db should be null');
-                                        log_db = log_db_in;
-                                        go(node_state, 'running');
-                                      });
+                  storage.open(data_dir, node_name, conf.get('log_db'),
+                               function(err, log_db_in) {
+                                 assert(log_db == null,
+                                        'log_db should be null');
+                                 log_db = log_db_in;
+                                 go(node_state, 'running');
+                               });
                 });
 
   on_transition(node_state, 'warming', 'running',
