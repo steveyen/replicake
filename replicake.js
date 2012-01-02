@@ -9,7 +9,7 @@
 //
 var assert = require('assert');
 
-exports.open_node = function(conf, log_db_module, routes) {
+exports.open_node = function(conf, storage, comm) {
   var log_db = null;
 
   var time_start = new Date();
@@ -30,13 +30,13 @@ exports.open_node = function(conf, log_db_module, routes) {
 
   on_transition(node_state, 'opening', 'warming',
                 function() {
-                  log_db_module.log_db_open(data_dir, node_name, conf.get('log_db'),
-                                            function(err, log_db_in) {
-                                              assert(log_db == null,
-                                                     'log_db should be null');
-                                              log_db = log_db_in;
-                                              go(node_state, 'running');
-                                            });
+                  storage.log_db_open(data_dir, node_name, conf.get('log_db'),
+                                      function(err, log_db_in) {
+                                        assert(log_db == null,
+                                               'log_db should be null');
+                                        log_db = log_db_in;
+                                        go(node_state, 'running');
+                                      });
                 });
 
   on_transition(node_state, 'warming', 'running',
@@ -128,27 +128,27 @@ exports.open_node = function(conf, log_db_module, routes) {
   var paxos_acceptor = null;
   var paxos_learner = null;
 
-  routes_register_roster_slot('promise_req');
-  routes_register_roster_slot('promise_res');
-  routes_register_roster_slot('accept_req');
-  routes_register_roster_slot('accept_res');
+  comm_register_roster_slot('promise_req');
+  comm_register_roster_slot('promise_res');
+  comm_register_roster_slot('accept_req');
+  comm_register_roster_slot('accept_res');
 
-  function routes_register_roster_slot(action) {
-    routes.post('/roster/:roster/slots/:slot/' + action,
-                function(req, res) {
-                  var r_id = req.param(":roster");
-                  var s_id = req.param(":slot");
-                  if (r_id && s_id) {
-                    if (r_id <= max_defunct_roster_member_id) {
-                      // TODO: redirect new_configuration(current_roster_member_id);
-                      return;
-                    }
-                    var roster = roster_member_map[r_id];
-                    if (roster) {
-                      roster.on_slot_action(action, slot, req, res);
-                    }
+  function comm_register_roster_slot(action) {
+    comm.post('/roster/:roster/slots/:slot/' + action,
+              function(req, res) {
+                var r_id = req.param(":roster");
+                var s_id = req.param(":slot");
+                if (r_id && s_id) {
+                  if (r_id <= max_defunct_roster_member_id) {
+                    // TODO: redirect new_configuration(current_roster_member_id);
+                    return;
                   }
-                });
+                  var roster = roster_member_map[r_id];
+                  if (roster) {
+                    roster.on_slot_action(action, slot, req, res);
+                  }
+                }
+              });
   }
 
   running_event('leader_ping_req', leader_ping_req);
