@@ -118,6 +118,8 @@ exports.open_node = function(conf, log_db_module, routes) {
     var roster_member = roster_member_map[roster_id] = {
       'load':  function() { go(roster_member_state, 'warming'); return roster_member; },
       'start': function() { go(roster_member_state, 'warming'); return roster_member; },
+      'on_slot_action': function(action, slot, req, res) {
+      }
     }
     return roster_member;
   }
@@ -126,14 +128,27 @@ exports.open_node = function(conf, log_db_module, routes) {
   var paxos_acceptor = null;
   var paxos_learner = null;
 
-  routes_register('/paxos/promise_req');
-  routes_register('/paxos/promise_res');
-  routes_register('/paxos/accept_req');
-  routes_register('/paxos/accept_res');
+  routes_register_roster_slot('promise_req');
+  routes_register_roster_slot('promise_res');
+  routes_register_roster_slot('accept_req');
+  routes_register_roster_slot('accept_res');
 
-  function routes_register(message) {
-    routes.post('/' + message,
-                function(req, res) { go(node_state, message, req, res); });
+  function routes_register_roster_slot(action) {
+    routes.post('/roster/:roster/slots/:slot/' + action,
+                function(req, res) {
+                  var r_id = req.param(":roster");
+                  var s_id = req.param(":slot");
+                  if (r_id && s_id) {
+                    if (r_id <= max_defunct_roster_member_id) {
+                      // TODO: redirect new_configuration(current_roster_member_id);
+                      return;
+                    }
+                    var roster = roster_member_map[r_id];
+                    if (roster) {
+                      roster.on_slot_action(action, slot, req, res);
+                    }
+                  }
+                });
   }
 
   running_event('leader_ping_req', leader_ping_req);
