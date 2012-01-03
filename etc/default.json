@@ -1,4 +1,4 @@
 { "_comment": "Shipped defaults go here; use local.json for deployment overrides.",
-  "data_dir": "./data",
+  "data-dir": "./data",
   "port": 10203
 }

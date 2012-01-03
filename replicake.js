@@ -9,22 +9,14 @@
 //
 var assert = require('assert');
 
-exports.open_node = function(conf, storage, comm) {
-  var log_db = null;
-
+exports.open_node = function(node_name, data_dir, conf, storage, comm) {
   var time_start = new Date();
-  var node_name  = conf.get('node_name');
-  var data_dir   = conf.get('data_dir');
+  var log_db     = null;
 
   console.info('replicake node...')
-  console.info('  time_start = ' + time_start.toJSON());
-  console.info('  node_name  = ' + node_name);
-  console.info('  data_dir   = ' + data_dir);
-
-  if (node_name == null || node_name.toString().length <= 0) {
-    console.error("ERROR: missing node_name for replicake node.");
-    return null;
-  }
+  console.info('  time-start = ' + time_start.toJSON());
+  console.info('  node-name  = ' + node_name);
+  console.info('  data-dir   = ' + data_dir);
 
   var node_state = { curr: 'opening' }; // A replicake node has a state machine.
 
@@ -76,7 +68,7 @@ exports.open_node = function(conf, storage, comm) {
   // A roster_member object represents the participation of this node
   // in a given roster (or roster_id).  This node can participate in
   // multiple rosters at the same time; hence, we can have multiple
-  // roster_member objects.
+  // roster_member objects per node.
   //
   var roster_member_map = {}; // Keys = roster_id; values = roster_member objects.
   var max_defunct_roster_member_id = null;
@@ -84,19 +76,29 @@ exports.open_node = function(conf, storage, comm) {
   function load_roster_member(roster_id) {
     return mk_roster_member(roster_id, null).load();
   }
-  function start_roster_member(roster_id, prev_roster_id) {
-    return mk_roster_member(roster_id, prev_roster_id).start();
+  function start_roster_member(roster_id, start_slot_id) {
+    return mk_roster_member(roster_id, start_slot_id).start();
   }
 
-  function mk_roster_member(roster_id, prev_roster_id) {
+  function mk_roster_member(roster_id, start_slot_id) {
     assert(roster_member_map[roster_id] == null);
 
     // A roster_member has a state machine.
     var roster_member_state = { curr: 'start' };
     var finished_bcast = null;
 
-    on_transition(roster_member_state, 'start',   'warming', todo);
-    on_transition(roster_member_state, 'warming', 'finished', todo);
+    on_transition(roster_member_state, 'start', 'warming',
+                  function() {
+                    need_starting_state(roster_id);
+                  });
+    on_transition(roster_member_state, 'warming', 'finished',
+                  function() {
+                    if (last_checkpoint_slot_id(storage, roster_id) >= start_slot_id) {
+                      go(roster_member_state, 'running');
+                    } else {
+                      need_starting_state(roster_id);
+                    }
+                  });
     on_transition(roster_member_state, 'warming', 'running', todo);
     on_transition(roster_member_state, 'running', 'cooling', todo);
     on_transition(roster_member_state, 'cooling', 'last_entry_executed',
