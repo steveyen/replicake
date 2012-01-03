@@ -24,8 +24,7 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                 function() {
                   storage.open(data_dir, node_name, conf.get('log_db'),
                                function(err, log_db_in) {
-                                 assert(log_db == null,
-                                        'log_db should be null');
+                                 assert(log_db == null, 'log_db should be null');
                                  log_db = log_db_in;
                                  go(node_state, 'running');
                                });
@@ -47,7 +46,6 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                   // -- garbage collect old log entries
                   // -- handle roster changes
                 });
-
 
   on_transition(node_state, 'running', 'paused', function() { assert(log_db); });
   on_transition(node_state, 'paused', 'running', function() { assert(log_db); });
