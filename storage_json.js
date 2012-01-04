@@ -1,14 +1,16 @@
 // Simple, memory-based storage for replicake that loads/saves to json file.
 // Doesn't provide durability if process crashes.
 //
-var fs   = require('fs');
-var path = require('path');
+var fs     = require('fs');
+var path   = require('path');
+var assert = require('assert');
 
 exports.open = function(data_dir, name, conf, cb) {
   var data = {};
   var self = { // API is defined here in self.
                'close': function() { self = null; },
-               'save': save };
+               'save': save,
+               'add': todo };
 
   var log_dir  = data_dir + '/data-' + name;
   var log_file = log_dir + '/log_db.json';
@@ -52,5 +54,7 @@ exports.open = function(data_dir, name, conf, cb) {
       cb(new Exception("log_db already closed: " + log_file));
     }
   }
+
+  function todo() { assert(false); }
 }
 

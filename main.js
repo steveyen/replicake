@@ -14,7 +14,8 @@ var storage      = require('./storage_' + (storage_conf.kind || 'json'));
 var data_dir   = nconf.get('data-dir');
 var node_name  = nconf.get('node-name');
 
-assert(node_name != null && node_name.toString().length > 0,
+assert(node_name != null &&
+       node_name.toString().length > 0,
        "ERROR: missing node_name for replicake node.");
 
 var exp = require('express').createServer();

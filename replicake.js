@@ -91,14 +91,14 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
     on_transition(roster_member_state, 'start', 'creating',
                   function() {
                     assert(data.start_slot_id != null && data.members != null);
-                    storage.save(roster_id, data,
-                                 function(err) {
-                                   if (!err) {
-                                     go(roster_member_state, 'warming');
-                                   } else {
-                                     assert(false, "TODO");
-                                   }
-                                 });
+                    storage.add(roster_id, data,
+                                function(err) {
+                                  if (!err) {
+                                    go(roster_member_state, 'warming');
+                                  } else {
+                                    assert(false, "TODO");
+                                  }
+                                });
                   });
     on_transition(roster_member_state, 'start', 'loading',
                   function() {
