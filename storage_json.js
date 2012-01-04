@@ -1,4 +1,4 @@
-// Simple, memory-based log db that loads/saves to json file.
+// Simple, memory-based storage for replicake that loads/saves to json file.
 // Doesn't provide durability if process crashes.
 //
 var fs   = require('fs');
