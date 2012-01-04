@@ -74,21 +74,50 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
   function load_roster_member(roster_id) {
     return mk_roster_member(roster_id, null).load();
   }
-  function start_roster_member(roster_id, start_slot_id) {
-    return mk_roster_member(roster_id, start_slot_id).start();
+  function create_roster_member(roster_id, start_slot_id, members) {
+    return mk_roster_member(roster_id).create(start_slot_id, members);
   }
 
-  function mk_roster_member(roster_id, start_slot_id) {
+  function mk_roster_member(roster_id) {
+    var data = { start_slot_id: null,
+                 members: null };
+
     assert(roster_member_map[roster_id] == null);
 
     // A roster_member has a state machine.
     var roster_member_state = { curr: 'start' };
     var finished_bcast = null;
 
-    on_transition(roster_member_state, 'start', 'warming',
+    on_transition(roster_member_state, 'start', 'creating',
                   function() {
-                    need_starting_state(roster_id);
+                    assert(data.start_slot_id != null && data.members != null);
+                    storage.save(roster_id, data,
+                                 function(err) {
+                                   if (!err) {
+                                     go(roster_member_state, 'warming');
+                                   } else {
+                                     assert(false, "TODO");
+                                   }
+                                 });
                   });
+    on_transition(roster_member_state, 'start', 'loading',
+                  function() {
+                    storage.load(roster_id,
+                                 function(err, in_data) {
+                                   if (!err && in_data) {
+                                     assert(data.start_slot_id == null && data.members == null);
+                                     data = in_data;
+                                     assert(data.start_slot_id != null && data.members != null);
+                                     go(roster_member_state, 'warming');
+                                   } else {
+                                     assert(false, "TODO");
+                                   }
+                                 });
+                  });
+    on_transition(roster_member_state, 'creating', 'warming',
+                  function() { need_starting_state(roster_id); });
+    on_transition(roster_member_state, 'loading', 'warming',
+                  function() { need_starting_state(roster_id); });
     on_transition(roster_member_state, 'warming', 'finished',
                   function() {
                     if (last_checkpoint_slot_id(storage, roster_id) >= start_slot_id) {
@@ -116,8 +145,17 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                   });
 
     var roster_member = roster_member_map[roster_id] = {
-      'load':  function() { go(roster_member_state, 'warming'); return roster_member; },
-      'start': function() { go(roster_member_state, 'warming'); return roster_member; },
+      'load':  function() {
+        go(roster_member_state, 'loading')
+        return roster_member;
+      },
+      'create': function(in_start_slot_id, in_members) {
+        assert(data.start_slot_id == null && data.members == null);
+        data.start_slot_id = in_start_slot_id;
+        data.members = in_members;
+        go(roster_member_state, 'creating');
+        return roster_member;
+      },
       'on_slot_action': function(action, slot, req, res) {
       }
     }
