@@ -91,48 +91,40 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
     on_transition(roster_member_state, 'start', 'creating',
                   function() {
                     assert(data.start_slot_id != null && data.members != null);
-                    storage.add(roster_id, data,
-                                function(err) {
-                                  if (!err) {
-                                    go(roster_member_state, 'warming');
-                                  } else {
-                                    assert(false, "TODO");
-                                  }
-                                });
+                    storage.create(roster_id, data,
+                                   function(err) {
+                                     if (!err) {
+                                       go(roster_member_state, 'opening');
+                                     } else {
+                                       assert(false, "TODO");
+                                     }
+                                   });
                   });
-    on_transition(roster_member_state, 'start', 'loading',
-                  function() {
-                    storage.load(roster_id,
-                                 function(err, in_data) {
-                                   if (!err && in_data) {
-                                     assert(data.start_slot_id == null && data.members == null);
-                                     data = in_data;
-                                     assert(data.start_slot_id != null && data.members != null);
-                                     go(roster_member_state, 'warming');
-                                   } else {
-                                     assert(false, "TODO");
-                                   }
-                                 });
-                  });
-    on_transition(roster_member_state, 'creating', 'warming',
-                  function() { need_starting_state(roster_id); });
-    on_transition(roster_member_state, 'loading', 'warming',
-                  function() { need_starting_state(roster_id); });
-    on_transition(roster_member_state, 'warming', 'finished',
-                  function() {
-                    if (last_checkpoint_slot_id(storage, roster_id) >= start_slot_id) {
-                      go(roster_member_state, 'running');
-                    } else {
-                      need_starting_state(roster_id);
-                    }
-                  });
-    on_transition(roster_member_state, 'warming', 'running', todo);
-    on_transition(roster_member_state, 'running', 'cooling', todo);
-    on_transition(roster_member_state, 'cooling', 'last_entry_executed',
+
+    on_transition(roster_member_state, 'start',    'opening', open);
+    on_transition(roster_member_state, 'creating', 'opening', open);
+    
+    function open() {
+      storage.open(roster_id,
+                   function(err, in_data) {
+                     if (!err && in_data) {
+                       assert(data.start_slot_id == null && data.members == null);
+                       data = in_data;
+                       assert(data.start_slot_id != null && data.members != null);
+                       go(roster_member_state, 'running');
+                     } else {
+                       assert(false, "TODO");
+                     }
+                   });
+    }
+
+    on_transition(roster_member_state, 'opening', 'running', todo);
+
+    on_transition(roster_member_state, 'running', 'finishing', // Last entry executed.
                   function () {
                     go(roster_member_state, 'finished');
                   });
-    on_transition(roster_member_state, 'last_entry_executed', 'finished',
+    on_transition(roster_member_state, 'finishing', 'finished',
                   function () {
                     assert(finished_bcast == null);
                     finished_cast = bcast_periodically('finished');
