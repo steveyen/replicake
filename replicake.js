@@ -64,7 +64,7 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
   // multiple rosters at the same time; hence, we have a map that
   // tracks the multiple roster_member objects per node.
   //
-  var roster_member_map = {}; // Keys = roster_id; values = roster_member objects.
+  var roster_member_map = {}; // Key = roster_id; value = roster_member object.
   var max_defunct_roster_member_id = null;
 
   function mk_roster_member(roster_id) {
