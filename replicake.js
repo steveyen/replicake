@@ -171,7 +171,7 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
       'on_slot_action': function(action, slot, req, res) {
         if (roster_member_state.curr == 'running') {
           slots[slot] = slots[slot] || paxos.start(slot);
-          slots[slot].action(action, req, res);
+          slots[slot][action](req, res);
         }
       }
     }
