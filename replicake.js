@@ -112,8 +112,8 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
 
     on_transition(roster_member_state, 'opening', 'running',
                   function() {
-                    elect_leader();
-                    catch_up_log_holes();
+                    roster_elect_leader();
+                    roster_catch_up_log();
 
                     // Concurrently...
                     // -- find and/or help choose leader
@@ -126,19 +126,18 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
                     // -- handle roster changes
                   });
 
-    function elect_leader() {
+    function roster_elect_leader() {
       if (roster_member_state == 'running') {
-        if (leader_name == null ||
-            is_expired(leader_lease)) {
+        if (leader_name == null || is_expired(leader_lease)) {
           bcast('leader_elect', suggested_leader());
         }
-        periodically(elect_leader);
+        periodically(roster_elect_leader);
       }
     }
 
-    function catch_up_log_holes() {
+    function roster_catch_up_log() {
       if (roster_member_state == 'running') {
-        periodically(catch_up_log_holes);
+        periodically(roster_catch_up_log);
       }
     }
 
@@ -159,10 +158,12 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
         go(roster_member_state, 'opening')
         return roster_member;
       },
-      'create': function(in_start_slot_id, in_members) {
-        assert(data.start_slot_id == null && data.members == null);
+      'create': function(in_start_slot_id,
+                         in_members) {
+        assert(data.start_slot_id != null &&
+               data.members != null);
         data.start_slot_id = in_start_slot_id;
-        data.members = in_members;
+        data.members       = in_members;
         go(roster_member_state, 'creating');
         return roster_member;
       },
