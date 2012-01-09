@@ -127,7 +127,7 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
                   });
 
     function roster_elect_leader() {
-      if (roster_member_state == 'running') {
+      if (roster_member_state.curr == 'running') {
         if (leader_name == null || is_expired(leader_lease)) {
           bcast('leader_elect', suggested_leader());
         }
@@ -136,7 +136,7 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
     }
 
     function roster_catch_up_log() {
-      if (roster_member_state == 'running') {
+      if (roster_member_state.curr == 'running') {
         periodically(roster_catch_up_log);
       }
     }
@@ -168,14 +168,12 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
         return roster_member;
       },
       'on_slot_action': function(action, slot, req, res) {
+        if (roster_member_state.curr == 'running') {
+        }
       }
     }
     return roster_member;
   }
-
-  var paxos_proposer = null;
-  var paxos_acceptor = null;
-  var paxos_learner = null;
 
   comm_register_roster_slot('promise_req');
   comm_register_roster_slot('promise_res');
@@ -183,19 +181,25 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
   comm_register_roster_slot('accept_res');
 
   function comm_register_roster_slot(action) {
-    comm.post('/roster/:roster/slots/:slot/' + action,
+    comm.post('/rosters/:roster/slots/:slot/' + action,
               function(req, res) {
-                var r_id = req.param(":roster");
-                var s_id = req.param(":slot");
-                if (r_id && s_id) {
-                  if (r_id <= max_defunct_roster_member_id) {
-                    // TODO: redirect new_configuration(current_roster_member_id);
-                    return;
+                if (node_state.curr != "running") {
+                  var r_id = req.param(":roster");
+                  var s_id = req.param(":slot");
+                  if (r_id && s_id) {
+                    if (r_id <= max_defunct_roster_member_id) {
+                      // TODO: redirect new_configuration(current_roster_member_id);
+                      return;
+                    }
+                    var roster_member = roster_member_map[r_id];
+                    if (roster_member) {
+                      roster_member.on_slot_action(action, slot, req, res);
+                    } else {
+                      // TODO: handle missing roster_member, perhaps needing creaton.
+                    }
                   }
-                  var roster = roster_member_map[r_id];
-                  if (roster) {
-                    roster.on_slot_action(action, slot, req, res);
-                  }
+                } else {
+                  // TODO: handle msg received when in the wrong state.
                 }
               });
   }
