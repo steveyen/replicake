@@ -19,7 +19,7 @@ assert(node_name != null &&
        "ERROR: missing node_name for replicake node.");
 
 var exp = require('express').createServer();
-var rep = require('./replicake').open_node(node_name, data_dir, nconf, storage, exp);
+var rep = require('./replicake').mk_node(node_name, data_dir, nconf, storage, exp);
 
 exp.get('/', function(req, res) {
   res.send('hello world, from replicake');
@@ -29,6 +29,6 @@ var port = nconf.get('port');
 console.log("listening: " + port);
 exp.listen(port);
 
-rep.warm();
+rep.open();
 
 

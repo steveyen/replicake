@@ -9,7 +9,7 @@
 //
 var assert = require('assert');
 
-exports.open_node = function(node_name, data_dir, conf, storage, comm) {
+exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
   var time_start = new Date();
   var log_db     = null;
 
@@ -18,22 +18,24 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
   console.info('  node-name  = ' + node_name);
   console.info('  data-dir   = ' + data_dir);
 
-  var node_state = { curr: 'opening' }; // A replicake node has a state machine.
+  var node_state = { curr: 'start' }; // A replicake node has a state machine.
 
-  on_transition(node_state, 'opening', 'warming',
+  on_transition(node_state, 'start', 'opening',
                 function() {
                   storage.open(data_dir, node_name, conf.get('log_db'),
                                function(err, log_db_in) {
-                                 assert(log_db == null, 'log_db should be null');
-                                 log_db = log_db_in;
-                                 go(node_state, 'running');
+                                 if (!err) {
+                                   assert(!log_db, 'log_db should be null');
+                                   log_db = log_db_in;
+                                   go(node_state, 'running');
+                                 } else {
+                                   assert(false, "TODO: storage open error handling");
+                                 }
                                });
                 });
 
-  on_transition(node_state, 'warming', 'running',
+  on_transition(node_state, 'opening', 'running',
                 function() {
-                  assert(log_db);
-
                   log_db.get('open_rosters', function(roster_ids) {
                       for (var i in roster_ids) {
                         mk_roster_member(roster_ids[i]).open();
@@ -41,21 +43,21 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                     });
 
                   // Concurrently...
-                  // -- handle roster changes
+                  // -- handle roster changes.
+                  // -- handle initial/seed roster.
+                  // -- dispatch requests to the right roster.
                 });
 
-  on_transition(node_state, 'running', 'cooling', cool);
-  on_transition(node_state, 'warming', 'cooling', cool);
-  on_transition(node_state, 'cooling', 'closed', function() { assert(!log_db); });
+  on_transition(node_state, 'running', 'closing',
+                function() {
+                  log_db.save(function() {
+                      log_db.close();
+                      log_db = null;
+                      go(node_state, 'end');
+                    });
+                });
 
-  function cool() {
-    assert(log_db);
-    log_db.save(function() {
-        log_db.close();
-        log_db = null;
-        go(node_state, 'closed');
-      });
-  }
+  on_transition(node_state, 'closing', 'end', function() { assert(!log_db); });
 
   // A roster_member object represents the participation of this node
   // in a given roster (or roster_id).  This node can participate in
@@ -242,7 +244,7 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
 
   var self = {
     'go': function(to_state) { go(node_state, to_state); return self; },
-    'warm': function() { self.go("warming"); return self; }
+    'open': function() { self.go("opening"); return self; }
   };
 
   return self;
