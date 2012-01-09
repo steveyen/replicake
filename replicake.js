@@ -41,13 +41,6 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                     });
 
                   // Concurrently...
-                  // -- find and/or help choose leader
-                  // -- start paxos participation / log replica
-                  // -- continually catchup on log holes
-                  // -- help others catchup on log holes
-                  // -- apply fully received log entries
-                  // -- take local snapshots
-                  // -- garbage collect old log entries
                   // -- handle roster changes
                 });
 
@@ -118,6 +111,17 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
     on_transition(roster_member_state, 'opening', 'running',
                   function() {
                     elect_leader();
+                    catch_up_log_holes();
+
+                    // Concurrently...
+                    // -- find and/or help choose leader
+                    // -- participate in paxos for log slots
+                    // -- continually catchup on log holes
+                    // -- help others catchup on log holes
+                    // -- apply fully received log entries
+                    // -- take local snapshots
+                    // -- garbage collect old log entries
+                    // -- handle roster changes
                   });
 
     function elect_leader() {
@@ -127,6 +131,12 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
           bcast('leader_elect', suggested_leader());
         }
         periodically(elect_leader);
+      }
+    }
+
+    function catch_up_log_holes() {
+      if (roster_member_state == 'running') {
+        periodically(catch_up_log_holes);
       }
     }
 
