@@ -154,7 +154,7 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
                   });
 
     var roster_member = roster_member_map[roster_id] = {
-      'open':  function() {
+      'open': function() {
         go(roster_member_state, 'opening')
         return roster_member;
       },
