@@ -8,6 +8,7 @@
 // 'cluster' ---< 'roster' ---< roster_member >--- node
 //
 var assert = require('assert');
+var paxos  = require('./paxos');
 
 exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
   var time_start = new Date();
@@ -169,6 +170,8 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
       },
       'on_slot_action': function(action, slot, req, res) {
         if (roster_member_state.curr == 'running') {
+          slots[slot] = slots[slot] || paxos.start(slot);
+          slots[slot].action(action, req, res);
         }
       }
     }
@@ -251,7 +254,6 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
     'go': function(to_state) { go(node_state, to_state); return self; },
     'open': function() { self.go("opening"); return self; }
   };
-
   return self;
 };
 
