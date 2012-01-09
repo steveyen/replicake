@@ -34,7 +34,11 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                 function() {
                   assert(log_db);
 
-                  broadcast();
+                  log_db.get('open_rosters', function(roster_ids) {
+                      for (var i in roster_ids) {
+                        mk_roster_member(roster_ids[i]).open();
+                      }
+                    });
 
                   // Concurrently...
                   // -- find and/or help choose leader
@@ -46,9 +50,6 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                   // -- garbage collect old log entries
                   // -- handle roster changes
                 });
-
-  on_transition(node_state, 'running', 'paused', function() { assert(log_db); });
-  on_transition(node_state, 'paused', 'running', function() { assert(log_db); });
 
   on_transition(node_state, 'running', 'cooling', cool);
   on_transition(node_state, 'warming', 'cooling', cool);
@@ -71,13 +72,6 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
   var roster_member_map = {}; // Keys = roster_id; values = roster_member objects.
   var max_defunct_roster_member_id = null;
 
-  function load_roster_member(roster_id) {
-    return mk_roster_member(roster_id, null).load();
-  }
-  function create_roster_member(roster_id, start_slot_id, members) {
-    return mk_roster_member(roster_id).create(start_slot_id, members);
-  }
-
   function mk_roster_member(roster_id) {
     var data = { start_slot_id: null,
                  members: null };
@@ -87,6 +81,7 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
     // A roster_member has a state machine.
     var roster_member_state = { curr: 'start' };
     var finished_bcast = null;
+    var leader = null;
 
     on_transition(roster_member_state, 'start', 'creating',
                   function() {
@@ -122,14 +117,10 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
 
     on_transition(roster_member_state, 'running', 'finishing', // Last entry executed.
                   function () {
-                    go(roster_member_state, 'finished');
-                  });
-    on_transition(roster_member_state, 'finishing', 'finished',
-                  function () {
                     assert(finished_bcast == null);
                     finished_cast = bcast_periodically('finished');
                   });
-    on_transition(roster_member_state, 'finished', 'defunct',
+    on_transition(roster_member_state, 'finishing', 'defunct',
                   function () {
                     assert(finished_bcast);
                     finished_bcast.stop();
@@ -137,8 +128,8 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                   });
 
     var roster_member = roster_member_map[roster_id] = {
-      'load':  function() {
-        go(roster_member_state, 'loading')
+      'open':  function() {
+        go(roster_member_state, 'opening')
         return roster_member;
       },
       'create': function(in_start_slot_id, in_members) {
@@ -199,7 +190,12 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
 
   running_event('snapshot_timeout', todo);
 
-  running_event('roster_join', todo);
+  running_event('roster_join', function(in_roster_id, in_start_slot_id, in_members) {
+      if (in_roster_id > max_defunct_roster_member_id) {
+        return mk_roster_member(in_roster_id).create(in_start_slot_id, in_members);
+      }
+    });
+
   running_event('roster_join_request', todo);
   running_event('roster_finished', todo);
   running_event('roster_defunct', todo);
@@ -216,8 +212,6 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
   function catchup_req() {};
   function catchup_res() {};
   function catchup_timeout() {};
-
-  function broadcast() {};
 
   function todo() {};
 

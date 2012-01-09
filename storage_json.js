@@ -10,7 +10,8 @@ exports.open = function(data_dir, name, conf, cb) {
   var self = { // API is defined here in self.
                'close': function() { self = null; },
                'save': save,
-               'add': todo };
+               'add': todo,
+               'get': function(key) { return data[key]; } };
 
   var log_dir  = data_dir + '/data-' + name;
   var log_file = log_dir + '/log_db.json';

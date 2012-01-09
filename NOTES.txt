@@ -1,14 +1,5 @@
 to handle a dynamically changing sets of nodes...
 
-given a set of nodes...
-  a subset of those nodes participate in a 'configuration'.
-  new configurations are created over time as nodes are added/removed.
-  multiple configurations might be running concurrently
-    and may overlap in their usage of nodes.
-  a node might participate concurrently in one or more configurations.
-  a configuration has a replica running on each participating node.
-    replica might be started or finished or defunct w.r.t. its configuration.
-
 on {join, ConfNum, ...}
   where ConfNum > MaxDefunctConfNum
         -> replica_start(ConfNum).
