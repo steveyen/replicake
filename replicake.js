@@ -81,7 +81,9 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
     // A roster_member has a state machine.
     var roster_member_state = { curr: 'start' };
     var finished_bcast = null;
-    var leader = null;
+
+    var leader_name = null;
+    var leader_lease = null;
 
     on_transition(roster_member_state, 'start', 'creating',
                   function() {
@@ -96,10 +98,10 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                                    });
                   });
 
-    on_transition(roster_member_state, 'start',    'opening', open);
-    on_transition(roster_member_state, 'creating', 'opening', open);
+    on_transition(roster_member_state, 'start',    'opening', open_roster_member);
+    on_transition(roster_member_state, 'creating', 'opening', open_roster_member);
     
-    function open() {
+    function open_roster_member() {
       storage.open(roster_id,
                    function(err, in_data) {
                      if (!err && in_data) {
@@ -113,15 +115,28 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
                    });
     }
 
-    on_transition(roster_member_state, 'opening', 'running', todo);
+    on_transition(roster_member_state, 'opening', 'running',
+                  function() {
+                    elect_leader();
+                  });
+
+    function elect_leader() {
+      if (roster_member_state == 'running') {
+        if (leader_name == null ||
+            is_expired(leader_lease)) {
+          broadcast_to_roster('leader_elect', suggested_leader());
+        }
+        periodically(elect_leader);
+      }
+    }
 
     on_transition(roster_member_state, 'running', 'finishing', // Last entry executed.
-                  function () {
+                  function() {
                     assert(finished_bcast == null);
                     finished_cast = bcast_periodically('finished');
                   });
     on_transition(roster_member_state, 'finishing', 'defunct',
-                  function () {
+                  function() {
                     assert(finished_bcast);
                     finished_bcast.stop();
                     finished_bcast = null;
