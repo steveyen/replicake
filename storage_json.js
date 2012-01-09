@@ -11,7 +11,7 @@ exports.open = function(data_dir, name, conf, cb) {
                'close': function() { self = null; },
                'save': save,
                'add': todo,
-               'get': function(key) { return data[key]; } };
+               'get': function(key, cb) { cb(key, data[key]); } };
 
   var log_dir  = data_dir + '/data-' + name;
   var log_file = log_dir + '/log_db.json';

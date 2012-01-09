@@ -36,9 +36,9 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
 
   on_transition(node_state, 'opening', 'running',
                 function() {
-                  log_db.get('open_rosters', function(roster_ids) {
-                      for (var i in roster_ids) {
-                        mk_roster_member(roster_ids[i]).open();
+                  log_db.get('open_rosters', function(_key, roster_ids) {
+                      for (var roster_id in roster_ids) {
+                        mk_roster_member(roster_id).open();
                       }
                     });
 
