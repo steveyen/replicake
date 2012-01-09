@@ -66,17 +66,17 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
 
   // A roster_member object represents the participation of this node
   // in a given roster (or roster_id).  This node can participate in
-  // multiple rosters at the same time; hence, we can have multiple
-  // roster_member objects per node.
+  // multiple rosters at the same time; hence, we have a map that
+  // tracks the multiple roster_member objects per node.
   //
   var roster_member_map = {}; // Keys = roster_id; values = roster_member objects.
   var max_defunct_roster_member_id = null;
 
   function mk_roster_member(roster_id) {
+    assert(roster_member_map[roster_id] == null);
+
     var data = { start_slot_id: null,
                  members: null };
-
-    assert(roster_member_map[roster_id] == null);
 
     // A roster_member has a state machine.
     var roster_member_state = { curr: 'start' };
@@ -124,7 +124,7 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
       if (roster_member_state == 'running') {
         if (leader_name == null ||
             is_expired(leader_lease)) {
-          broadcast_to_roster('leader_elect', suggested_leader());
+          bcast('leader_elect', suggested_leader());
         }
         periodically(elect_leader);
       }
@@ -132,7 +132,7 @@ exports.open_node = function(node_name, data_dir, conf, storage, comm) {
 
     on_transition(roster_member_state, 'running', 'finishing', // Last entry executed.
                   function() {
-                    assert(finished_bcast == null);
+                    assert(!finished_bcast);
                     finished_cast = bcast_periodically('finished');
                   });
     on_transition(roster_member_state, 'finishing', 'defunct',

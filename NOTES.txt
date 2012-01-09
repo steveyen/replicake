@@ -239,6 +239,7 @@ cluster
 
 'down' is how outsiders might see a node,
 but a node never sees itself as down.
+  unless it's disk full / corrupted.
 
 node-self states...
    booting
