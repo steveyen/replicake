@@ -26,6 +26,7 @@ exports.proposer = function(key, opts) {
   opts = opts || {};
 
   var proposer_timeout = opts.proposer_timeout || 3;
+  var quorum           = opts.quorum || majority;
 
   var tot_propose_phase       = 0; // Stats counters.
   var tot_propose_phase_loop  = 0;
@@ -35,12 +36,10 @@ exports.proposer = function(key, opts) {
   var tot_propose_vote        = 0;
   var tot_propose_vote_repeat = 0;
 
-  var quorum = opts.quorum || majority;
-
   function propose(ballot, acceptors, val, cb) {
     assert(acceptors.length > 0);
 
-    function phase(req, yea_vote_kind, cb_phase) {
+    function phase(req, yea_kind, cb_phase) {
       tot_propose_phase = tot_propose_phase + 1;
 
       for (acceptor in acceptors) {
@@ -49,8 +48,8 @@ exports.proposer = function(key, opts) {
 
       var needs = quorum(acceptors.length);
       var tally = {};
-      tally[yea_vote_kind] = [ {}, needs, null ];
-      tally[RES_NACK]      = [ {}, acceptors.length - needs + 1, "rejected" ];
+      tally[yea_kind] = [ {}, needs, null ];
+      tally[RES_NACK] = [ {}, acceptors.length - needs + 1, "rejected" ];
 
       var timer = null;
       function restart_timer() {
@@ -139,6 +138,7 @@ exports.acceptor = function(key, opts) {
   opts = opts || {};
 
   var acceptor_timeout = opts.acceptor_timeout || 3; // In seconds.
+  var quorum           = opts.quorum || majority;
 
   var tot_accept_loop         = 0; // Stats counters.
   var tot_accept_bad_req      = 0;
@@ -151,8 +151,6 @@ exports.acceptor = function(key, opts) {
   var tot_accept_accepted     = 0;
   var tot_accept_nack_storage = 0;
   var tot_accept_nack_behind  = 0;
-
-  var quorum = opts.quorum || majority;
 
   function accept(storage, initial_state) {
     initial_state = initial_state || {};
