@@ -26,7 +26,7 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
   assert(key != null);
   opts = opts || {};
 
-  var proposer_timeout = opts.proposer_timeout || 3;
+  var proposer_timeout = opts.proposer_timeout || 3; // In seconds.
   var quorum           = opts.quorum || majority;
 
   var tot_propose_phase       = 0; // Stats counters.
