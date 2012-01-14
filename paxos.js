@@ -57,7 +57,6 @@ exports.start = function(key, opts) {
 
     function process(req, kind, storage_fun) {
       if (seq_gte(req.seq, proposal_seq)) {
-
       }
     }
 
@@ -258,3 +257,48 @@ function arr_member(arr, item) {
   }
   return false;
 }
+
+var BALLOT_SEQ_NUM           = 0;
+var BALLOT_PROPOSER          = 1;
+var BALLOT_PROPOSER_RESTARTS = 2;
+
+function ballot_mk(seq_num, proposer, proposer_restarts) {
+  return [seq_num, proposer, proposer_restarts];
+}
+
+function ballot_inc(ballot) {
+  return mk_ballot(ballot[BALLOT_SEQ_NUM] + 1,
+                   ballot[BALLOT_PROPOSER],
+                   ballot[BALLOT_PROPOSER_RESTARTS]);
+}
+
+var BOTTOM_BALLOT = ballot_mk(-1, -1, -1);
+
+function ballot_gte(a, b) {
+  a = a || BOTTOM_BALLOT;
+  b = b || BOTTOM_BALLOT;
+  for (var i = 0; i < Math.min(a.length, b.length); i++) {
+    if (a[i] > b[i]) {
+      return true;
+    }
+    if (a[i] < b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function ballot_test() {
+  var a = ballot_mk(1, 0, 0);
+  var assert = require('assert');
+  assert(ballot_gte(a, BOTTOM_BALLOT));
+  assert(ballot_gte(ballot_mk(1, 1, 1), a));
+  assert(ballot_gte(ballot_mk(1, 1, 0), a));
+  assert(ballot_gte(ballot_mk(1, 0, 1), a));
+  assert(ballot_gte(ballot_mk(1, 0, 0), a));
+  assert(!ballot_gte(ballot_mk(0, 0, 0), a));
+  assert(!ballot_gte(ballot_mk(0, 0, 1), a));
+  assert(!ballot_gte(ballot_mk(0, 1, 0), a));
+  assert(!ballot_gte(ballot_mk(0, 1, 1), a));
+}
+
