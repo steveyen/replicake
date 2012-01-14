@@ -21,7 +21,8 @@ function is_member(collection, item) {
 
 // ----------------------------------------------------------------
 
-exports.proposer = function(key, opts) {
+exports.proposer = function(start_ballot, acceptors, key, opts) {
+  assert(acceptors != null && acceptors.length > 0);
   assert(key != null);
   opts = opts || {};
 
@@ -36,15 +37,31 @@ exports.proposer = function(key, opts) {
   var tot_propose_vote        = 0;
   var tot_propose_vote_repeat = 0;
 
-  function propose(ballot, acceptors, val, cb) {
-    assert(acceptors.length > 0);
+  var cur_ballot = start_ballot;
+  function nxt_ballot() {
+    cur_ballot = ballot_inc(cur_ballot);
+    return cur_ballot;
+  }
+
+  function propose(val, cb) {
+    var ballot = nxt_ballot();
+
+    // The proposer has two phases: promise & accept, which
+    // are similar and can share the same phase() logic.
+    //
+    phase({ "kind": REQ_PROPOSE, "ballot": ballot }, RES_PROPOSED,
+          function(err) {
+            if (err) {
+              cb(err);
+            } else {
+              phase({ "kind": REQ_ACCEPT, "ballot": ballot }, RES_ACCEPTED, cb);
+            }
+          });
 
     function phase(req, yea_kind, cb_phase) {
       tot_propose_phase = tot_propose_phase + 1;
 
-      for (acceptor in acceptors) {
-        send(acceptor, req);
-      }
+      broadcast(acceptors, req);
 
       var needs = quorum(acceptors.length);
       var tally = {};
@@ -53,7 +70,7 @@ exports.proposer = function(key, opts) {
 
       var timer = null;
       function restart_timer() {
-        timer = start_timer(proposer_timeout, function() {
+        timer = timer_start(proposer_timeout, function() {
             if (timer != null) {
               timer = null;
               cb_phase('timeout');
@@ -64,7 +81,7 @@ exports.proposer = function(key, opts) {
 
       function on_recv(src, res) {
         if (timer != null) {
-          clear_timer(timer);
+          timer_clear(timer);
           timer = null;
 
           tot_propose_recv = total_propose_recv + 1;
@@ -80,10 +97,11 @@ exports.proposer = function(key, opts) {
             if (!is_member(votes, src)) {
               tot_propose_vote = tot_propose_vote + 1;
               votes[votes.length] = src;
-              if (votes.length > vkind[1]) {
+              if (votes.length >= vkind[1]) {
                 cb_phase(vkind[2], { "ballot": res.accepted_ballot,
                                      "val": res.accepted_val,
                                      "proposal_ballot": res.proposal_ballot });
+                return;
               }
             } else {
               tot_propose_vote_repeat = tot_propose_vote_repeat + 1;
@@ -95,22 +113,10 @@ exports.proposer = function(key, opts) {
           }
 
           total_propose_phase_loop = tot_propose_phase_loop + 1;
-          restart_timer();
+          timer_restart();
         }
       }
     }
-
-    // The proposer has two phases: promise & accept, which
-    // are similar and can share the same phase() logic.
-    //
-    phase({ "kind": REQ_PROPOSE, "ballot": ballot }, RES_PROPOSED,
-          function(err) {
-            if (err) {
-              cb(err);
-            } else {
-              phase({ "kind": REQ_ACCEPT, "ballot": ballot }, RES_ACCEPTED, cb);
-            }
-          });
   }
 
   function stats() {
@@ -126,7 +132,7 @@ exports.proposer = function(key, opts) {
   var self = {
     "propose_req": function(req, res) {},
     "propose_res": function(req, res) {},
-    "stats"   : stats
+    "stats": stats
   };
   return self;
 };
@@ -173,8 +179,8 @@ exports.acceptor = function(key, opts) {
     }
 
     var timer = null;
-    function restart_timer() {
-      timer = start_timer(acceptor_timeout, function() {
+    function timer_restart() {
+      timer = timer_start(acceptor_timeout, function() {
           if (timer != null) {
             timer = null;
             cb_phase('timeout', { "accepted_ballot": accepted_ballot,
@@ -182,11 +188,11 @@ exports.acceptor = function(key, opts) {
           }
         });
     }
-    restart_timer();
+    timer_restart();
 
     function on_recv(req) {
       if (timer != null) {
-        clear_timer(timer);
+        timer_clear(timer);
         timer = null;
 
         tot_accept_recv = tot_accept_recv + 1;
@@ -233,7 +239,7 @@ exports.acceptor = function(key, opts) {
         }
 
         tot_accept_loop = tot_accept_loop + 1;
-        restart_timer();
+        timer_restart();
       }
     }
   }
