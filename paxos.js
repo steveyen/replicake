@@ -166,9 +166,9 @@ exports.acceptor = function(key, opts) {
     var accepted_val            = initial_state.accepted_val;
 
     function respond(to, msg) {
+      msg.highest_promised_ballot = highest_promised_ballot;
       msg.accepted_ballot = accepted_ballot; // Allow requestor to catch up to
       msg.accepted_val    = accepted_val;    // our currently accepted ballot+val.
-      msg.highest_promised_ballot = highest_promised_ballot;
       send(to, self(), msg);
       tot_accept_send = total_accept_send + 1;
     }
@@ -179,12 +179,9 @@ exports.acceptor = function(key, opts) {
         // The acceptor's main responsibility is to
         // process incoming propose or accept requests.
         //
-        // Both propose and accept request handling are
-        // similar, sharing the same process() helper function.
-        //
-        if (req.kind == REQ_PROPOSE) {
-          tot_accept_propose = tot_accept_propose + 1;
-          if (ballot_gte(req.ballot, highest_promised_ballot)) {
+        if (ballot_gte(req.ballot, highest_promised_ballot)) {
+          if (req.kind == REQ_PROPOSE) {
+            tot_accept_propose = tot_accept_propose + 1;
             comm.pause();
             storage.save_highest_promised_ballot(
               req.ballot,
@@ -198,10 +195,8 @@ exports.acceptor = function(key, opts) {
                 }
                 comm.unpause();
               });
-          }
-        } else if (req.kind == REQ_ACCEPT) {
-          tot_accept_accept = tot_accept_accept + 1;
-          if (ballot_gte(req.ballot, highest_promised_ballot)) {
+          } else if (req.kind == REQ_ACCEPT) {
+            tot_accept_accept = tot_accept_accept + 1;
             comm.pause();
             storage.save_accepted(
               req.ballot,
@@ -218,14 +213,17 @@ exports.acceptor = function(key, opts) {
                 }
                 comm.unpause();
               });
+          } else {
+            tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
+            log("paxos.accept - unknown req.kind: " + req.kind);
+            respond(req.sender, { "kind": RES_NACK });
           }
-       } else {
-          tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
-          log("paxos.accepte - unknown req.kind: " + req.kind);
+        } else {
+          respond(req.sender, { "kind": RES_NACK });
         }
       } else {
         tot_accept_bad_req = tot_accept_bad_req + 1;
-        log("paxos.accepte - bad req");
+        log("paxos.accept - bad req");
       }
 
       tot_accept_loop = tot_accept_loop + 1;
