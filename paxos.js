@@ -132,6 +132,7 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
   var self = {
     "propose_req": function(req, res) {},
     "propose_res": function(req, res) {},
+    "accept_res": function(req, res) {},
     "stats": stats
   };
   return self;
@@ -165,15 +166,6 @@ exports.acceptor = function(key, opts) {
     var accepted_ballot         = initial_state.accepted_ballot;
     var accepted_val            = initial_state.accepted_val;
 
-    function respond(req, kind, msg) {
-      msg = msg || {};
-      msg.kind = kind;
-      msg.req = req;
-      msg.highest_proposed_ballot = highest_proposed_ballot;
-      send(req.sender, msg);
-      tot_accept_send = total_accept_send + 1;
-    }
-
     function on_recv(req) {
       tot_accept_recv = tot_accept_recv + 1;
       if (req != null && req.ballot != null) {
@@ -194,7 +186,7 @@ exports.acceptor = function(key, opts) {
                 } else {
                   respond(req, RES_NACK,
                           { // Allow requestor to catch up to our accepted value.
-                            "accepted_ballot": accepted_ballot;
+                            "accepted_ballot": accepted_ballot,
                             "accepted_val":    accepted_val } );
                 }
                 comm.unpause();
@@ -232,6 +224,15 @@ exports.acceptor = function(key, opts) {
 
       tot_accept_loop = tot_accept_loop + 1;
     }
+
+    function respond(req, kind, msg) {
+      msg = msg || {};
+      msg.kind = kind;
+      msg.req = req;
+      msg.highest_proposed_ballot = highest_proposed_ballot;
+      send(req.sender, msg);
+      tot_accept_send = total_accept_send + 1;
+    }
   }
 
   function stats() {
@@ -250,7 +251,6 @@ exports.acceptor = function(key, opts) {
 
   var self = {
     "accept_req": function(req, res) {},
-    "accept_res": function(req, res) {},
     "stats": stats
   };
   return self;
