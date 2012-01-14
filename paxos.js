@@ -8,16 +8,16 @@ var RES_ACCEPTED = 21;
 
 var SEQ_NUM = 1;
 var SEQ_SRC = 2;
-var SEQ_KEY = 3; -- App-specific info, like a slot id or storage key.
+var SEQ_KEY = 3; // App-specific info, like a slot id or storage key.
 
 exports.start = function(key, opts) {
   assert(key != null);
   opts = opts || {};
-`
-  var acceptor_timeout = opts.acceptor_timeout || 3; -- In seconds.
+
+  var acceptor_timeout = opts.acceptor_timeout || 3; // In seconds.
   var proposer_timeout = opts.proposer_timeout || 3;
 
-  var tot_accept_loop         = 0; -- Stats counters.
+  var tot_accept_loop         = 0; // Stats counters.
   var tot_accept_bad_req      = 0;
   var tot_accept_bad_req_kind = 0;
   var tot_accept_recv         = 0;

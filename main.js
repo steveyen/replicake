@@ -16,7 +16,7 @@ var node_name  = nconf.get('node-name');
 
 assert(node_name != null &&
        node_name.toString().length > 0,
-       "ERROR: missing node_name for replicake node.");
+       "ERROR: missing node-name for replicake node.");
 
 var exp = require('express').createServer();
 var rep = require('./replicake').mk_node(node_name, data_dir, nconf, storage, exp);
