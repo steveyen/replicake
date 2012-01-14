@@ -10,9 +10,9 @@ function majority(n) {
   return Math.floor(n / 2) + 1;
 }
 
-function arr_member(arr, item) {
-  for (var x in arr) {
-    if (x == item) {
+function is_member(collection, item) {
+  for (var i in collection) {
+    if (collection[i] == item) {
       return true;
     }
   }
@@ -72,13 +72,13 @@ exports.proposer = function(key, opts) {
 
           // Stop when recv()'ed votes reach tally quorum, either yea or nay.
           //
-          if (arr_member(acceptors, src) &&
+          if (is_member(acceptors, src) &&
               res != null && res.req != null && res.req.ballot != null &&
               ballot_eq(res.req.ballot, ballot) &&
               tally[res.kind] != null) {
             var vkind = tally[res.kind];
             var votes = vkind[0];
-            if (!arr_member(votes, src)) {
+            if (!is_member(votes, src)) {
               tot_propose_vote = tot_propose_vote + 1;
               votes[votes.length] = src;
               if (votes.length > vkind[1]) {
