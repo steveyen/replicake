@@ -161,37 +161,41 @@ exports.acceptor = function(key, opts) {
   function accept(storage, initial_state) {
     initial_state = initial_state || {};
 
-    var highest_promised_ballot = initial_state.highest_promised_ballot;
+    var highest_proposed_ballot = initial_state.highest_proposed_ballot;
     var accepted_ballot         = initial_state.accepted_ballot;
     var accepted_val            = initial_state.accepted_val;
 
-    function respond(to, msg) {
-      msg.highest_promised_ballot = highest_promised_ballot;
-      msg.accepted_ballot = accepted_ballot; // Allow requestor to catch up to
-      msg.accepted_val    = accepted_val;    // our currently accepted ballot+val.
-      send(to, self(), msg);
+    function respond(req, kind, msg) {
+      msg = msg || {};
+      msg.kind = kind;
+      msg.req = req;
+      msg.highest_proposed_ballot = highest_proposed_ballot;
+      send(req.sender, msg);
       tot_accept_send = total_accept_send + 1;
     }
 
     function on_recv(req) {
       tot_accept_recv = tot_accept_recv + 1;
       if (req != null && req.ballot != null) {
-        // The acceptor's main responsibility is to
-        // process incoming propose or accept requests.
+        // The acceptor's main responsibility is to process incoming
+        // propose or accept requests with higher ballots.
         //
-        if (ballot_gte(req.ballot, highest_promised_ballot)) {
+        if (ballot_gte(req.ballot, highest_proposed_ballot)) {
           if (req.kind == REQ_PROPOSE) {
             tot_accept_propose = tot_accept_propose + 1;
             comm.pause();
-            storage.save_highest_promised_ballot(
+            storage.save_highest_proposed_ballot(
               req.ballot,
               function(err) {
                 if (!err) {
                   tot_accept_proposed = tot_accept_proposed + 1;
-                  highest_promised_ballot = req.ballot;
-                  respond(req.sender, { "kind": RES_PREPARED });
+                  highest_proposed_ballot = req.ballot;
+                  respond(req, RES_PREPARED);
                 } else {
-                  respond(req.sender, { "kind": RES_NACK });
+                  respond(req, RES_NACK,
+                          { // Allow requestor to catch up to our accepted value.
+                            "accepted_ballot": accepted_ballot;
+                            "accepted_val":    accepted_val } );
                 }
                 comm.unpause();
               });
@@ -204,22 +208,22 @@ exports.acceptor = function(key, opts) {
               function(err) {
                 if (!err) {
                   tot_accept_accepted = tot_accept_accepted + 1;
-                  highest_promised_ballot = req.ballot;
+                  highest_proposed_ballot = req.ballot;
                   accepted_ballot = req.ballot;
                   accepted_val = req.val;
-                  respond(req.sender, { "kind": RES_ACCEPTED });
+                  respond(req, RES_ACCEPTED);
                 } else {
-                  respond(req.sender, { "kind": RES_NACK });
+                  respond(req, RES_NACK);
                 }
                 comm.unpause();
               });
           } else {
             tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
             log("paxos.accept - unknown req.kind: " + req.kind);
-            respond(req.sender, { "kind": RES_NACK });
+            respond(req, RES_NACK);
           }
         } else {
-          respond(req.sender, { "kind": RES_NACK });
+          respond(req, RES_NACK);
         }
       } else {
         tot_accept_bad_req = tot_accept_bad_req + 1;
