@@ -296,7 +296,7 @@ function ballot_mk(seq_num, proposer_name, proposer_restarts) {
 var BOTTOM_BALLOT = ballot_mk(-1, -1, -1);
 
 function ballot_inc(ballot) {
-  return mk_ballot(ballot[BALLOT_SEQ_NUM] + 1,
+  return ballot_mk(ballot[BALLOT_SEQ_NUM] + 1,
                    ballot[BALLOT_PROPOSER_NAME],
                    ballot[BALLOT_PROPOSER_RESTARTS]);
 }
