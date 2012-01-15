@@ -78,10 +78,17 @@ function mock_comm(label) {
     label = label + " ";
   }
   blackboard.broadcasts = [];
+  blackboard.sends = [];
   var comm = {
     "broadcast": function(acceptors, msg) {
       log(label + "received: " + acceptors + ", " + JSON.stringify(msg));
       blackboard.broadcasts[blackboard.broadcasts.length] = [acceptors, msg];
+      for (var i in acceptors) {
+        comm.send(acceptors[i], msg);
+      }
+    },
+    "send": function(dst, msg) {
+      blackboard.sends[blackboard.sends.length] = [dst, msg];
     }
   };
   return comm;
@@ -180,7 +187,6 @@ function paxos_1_1_test() {
   console.log(".. paxos_1_1_test");
 
   blackboard = {};
-  blackboard.history = [];
 
   console.log("ok paxos_1_1_test");
 
