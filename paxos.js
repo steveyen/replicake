@@ -285,9 +285,9 @@ exports.is_member = is_member;
 
 // ----------------------------------------------------------------
 
-var BALLOT_SEQ_NUM           = 0;
-var BALLOT_PROPOSER_NAME     = 1;
-var BALLOT_PROPOSER_RESTARTS = 2;
+var BALLOT_SEQ_NUM           = exports.BALLOT_SEQ_NUM           = 0;
+var BALLOT_PROPOSER_NAME     = exports.BALLOT_PROPOSER_NAME     = 1;
+var BALLOT_PROPOSER_RESTARTS = exports.BALLOT_PROPOSER_RESTARTS = 2;
 
 function ballot_mk(seq_num, proposer_name, proposer_restarts) {
   return [seq_num, proposer_name, proposer_restarts];

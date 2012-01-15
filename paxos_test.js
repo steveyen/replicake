@@ -68,26 +68,38 @@ create_test();
 // ------------------------------------------------
 
 var broadcasts = [];
+function mk_comm(label) {
+  label = label || "";
+  if (label.length > 0) {
+    label = label + " ";
+  }
+  broadcasts = [];
+  var comm = {
+    "broadcast": function(acceptors, msg) {
+      console.log("     " + label + "received: " +
+                  acceptors + ", " + JSON.stringify(msg));
+      broadcasts[broadcasts.length] = [acceptors, msg];
+    }
+  };
+  return comm;
+}
+
 propose_phase_test();
 
 function propose_phase_test() {
   console.log(".. propose_phase_test");
-  var comm = {
-    "broadcast": function(acceptors, msg) {
-      console.log("     received: " + acceptors + ", " + JSON.stringify(msg));
-      broadcasts[broadcasts.length] = [acceptors, msg];
-    }
-  }
-  var proposer = paxos.proposer('A', 1, 0, ['A'], comm, { proposer_timeout: 100 });
-  proposer.propose(123, propose_phase_test_part1);
+  var proposer = paxos.proposer('A', 1, 0, ['B'], mk_comm(),
+                                { proposer_timeout: 100 });
+  proposer.propose(123, propose_phase_test1);
 }
 
-function propose_phase_test_part1(err, info) {
+function propose_phase_test1(err, info) {
   assert(err == 'timeout');
   assert(broadcasts.length == 1);
-  assert(broadcasts[0][0] == 'A');
+  assert(broadcasts[0][0] == 'B');
   assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
-  assert(broadcasts[0][1].ballot);
+  assert(paxos.ballot_eq(broadcasts[0][1].ballot,
+                         paxos.ballot_mk(0, 'A', 1)));
 
   console.log("ok propose_phase_test");
 
