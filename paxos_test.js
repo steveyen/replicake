@@ -156,10 +156,10 @@ function propose_2_acceptors_test() {
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B', 'C'], mock_comm(),
                    { proposer_timeout: 100 });
-  proposer.propose(123, propose_2_acceptors_test2);
+  proposer.propose(123, propose_2_acceptors_test1);
 }
 
-function propose_2_acceptors_test2(err, info) {
+function propose_2_acceptors_test1(err, info) {
   assert(err == 'timeout');
   assert(broadcasts.length == 1);
   assert(broadcasts[0][0].length == 2);
