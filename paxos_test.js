@@ -52,4 +52,17 @@ function is_member_test() {
 }
 is_member_test();
 
+function create_test() {
+  console.log("create_test...");
+  with (paxos) {
+    assert(proposer('A', 1, 0, ['A'], null, null));
+    try {
+      proposer('A', 1, 0, [], null, null);
+      assert(false);
+    } catch (ex) { assert(ex); }
+  }
+  console.log("create_test... ok");
+}
+create_test();
+
 console.log("DONE.");
