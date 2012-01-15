@@ -84,6 +84,8 @@ function mock_comm(label) {
   return comm;
 }
 
+var state = {};
+
 propose_phase_test();
 
 function propose_phase_test() {
@@ -100,6 +102,33 @@ function propose_phase_test1(err, info) {
   assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
   assert(paxos.ballot_eq(broadcasts[0][1].ballot,
                          paxos.ballot_mk(0, 'A', 1)));
+
+  // Two propose() calls.
+  state.callback_count = 0;
+  var proposer = paxos.proposer('A', 1, 0, ['B'], mock_comm(),
+                                { proposer_timeout: 100 });
+  proposer.propose(123, propose_phase_test2);
+  proposer.propose(234, propose_phase_test2);
+}
+
+function propose_phase_test2(err, info) {
+  // Should be called twice.
+  assert(err == 'timeout');
+  state.callback_count++;
+  assert(state.callback_count <= 2);
+  if (state.callback_count < 2) {
+    return;
+  }
+
+  assert(broadcasts.length == 2);
+  assert(broadcasts[0][0] == 'B');
+  assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
+  assert(paxos.ballot_eq(broadcasts[0][1].ballot,
+                         paxos.ballot_mk(0, 'A', 1)));
+  assert(broadcasts[1][0] == 'B');
+  assert(broadcasts[1][1].kind == paxos.REQ_PROPOSE);
+  assert(paxos.ballot_eq(broadcasts[1][1].ballot,
+                         paxos.ballot_mk(1, 'A', 1)));
 
   console.log("ok propose_phase_test");
 
