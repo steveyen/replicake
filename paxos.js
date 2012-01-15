@@ -12,7 +12,7 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
   assert(acceptors.length > 0);
 
   opts = opts || {};
-  var proposer_timeout = opts.proposer_timeout || 3; // In seconds.
+  var proposer_timeout = opts.proposer_timeout || 3000; // In milliseconds.
   var quorum           = opts.quorum || majority;
 
   var tot_propose_phase       = 0; // Stats counters.
@@ -65,7 +65,9 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
           return; // Drop/ignore late messages.
         }
 
-        timer_clear(timer);
+        if (timer) {
+          clearTimeout(timer);
+        }
         timer = null;
 
         if (opts.msg_preprocess) {
@@ -110,14 +112,13 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
 
       function restart_timer() {
         assert(!timer);
-        timer = timer_start(proposer_timeout,
-                            function() {
-                              tot_propose_timeout = tot_propose_timeout + 1;
-                              if (timer != null) {
-                                timer = null;
-                                cb_phase('timeout');
-                              }
-                            });
+        timer = setTimeout(function() {
+                             tot_propose_timeout = tot_propose_timeout + 1;
+                             if (timer != null) {
+                               timer = null;
+                               cb_phase('timeout');
+                             }
+                           }, proposer_timeout);
       }
     }
 
@@ -149,8 +150,7 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
 
 exports.acceptor = function(storage, comm, opts) {
   opts = opts || {};
-  var acceptor_timeout = opts.acceptor_timeout || 3; // In seconds.
-  var quorum           = opts.quorum || majority;
+  var quorum = opts.quorum || majority;
 
   var tot_accept_bad_req      = 0; // Stats counters.
   var tot_accept_bad_req_kind = 0;

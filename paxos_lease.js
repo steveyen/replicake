@@ -4,7 +4,7 @@ var paxos  = require('./paxos');
 // Algorithm adapted from: "PaxosLease: Diskless Paxos for Leases",
 // by Trencseni, Gazso, Reinhardt.
 //
-exports.lease_acquirer = function(lease_timeout,
+exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                                   node_name, node_restarts, acceptors, comm, opts) {
   opts = opts || {};
   opts.msg_preprocess = function(src, msg) {
@@ -19,7 +19,9 @@ exports.lease_acquirer = function(lease_timeout,
   };
   opts.on_phase_complete = function(kind, err) {
     if (kind == paxos.RES_PROPOSED && !err) {
-      timer_clear(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       timer = timer_start(lease_timeout, function() { owner = 'timeout'; });
     }
   };
@@ -76,12 +78,13 @@ exports.lease_acceptor = function(comm, opts) {
       accepted_ballot = ballot;
       accepted_val    = null;
 
-      timer_clear(timer);
-      timer = timer_start(val.lease_timeout,
-                          function() {
-                            accepted_ballot = null;
-                            accepted_val    = null;
-                          });
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(function() {
+                           accepted_ballot = null;
+                           accepted_val    = null;
+                         }, val.lease_timeout);
       cb(false);
     }
   };

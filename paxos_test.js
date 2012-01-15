@@ -65,4 +65,20 @@ function create_test() {
 }
 create_test();
 
+function propose_phase_test() {
+  console.log("propose_phase_test...");
+  var broadcasts = [];
+  var comm = {
+    "broadcast": function(acceptors, msg) {
+      broadcasts[broadcasts.length] = [acceptors, msg];
+    }
+  }
+  var proposer = paxos.proposer('A', 1, 0, ['A'], comm, null);
+  proposer.propose(123,
+                   function(err, info) {
+                   });
+  console.log("propose_phase_test... ok");
+}
+propose_phase_test();
+
 console.log("DONE.");
