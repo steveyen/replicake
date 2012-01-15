@@ -144,8 +144,7 @@ exports.acceptor = function(storage, comm, opts) {
   var acceptor_timeout = opts.acceptor_timeout || 3; // In seconds.
   var quorum           = opts.quorum || majority;
 
-  var tot_accept_loop         = 0; // Stats counters.
-  var tot_accept_bad_req      = 0;
+  var tot_accept_bad_req      = 0; // Stats counters.
   var tot_accept_bad_req_kind = 0;
   var tot_accept_recv         = 0;
   var tot_accept_send         = 0;
@@ -185,11 +184,8 @@ exports.acceptor = function(storage, comm, opts) {
                     highest_proposed_ballot = req.ballot;
                     respond(req, RES_PREPARED);
                   } else {
-                    // TODO: Save error.
-                    respond(req, RES_NACK,
-                            { // Allow requestor to catch up to our accepted value.
-                              "accepted_ballot": accepted_ballot,
-                              "accepted_val":    accepted_val } );
+                    tot_accept_nack_storage = tot_accept_nack_storage + 1;
+                    respond(req, RES_NACK);
                   }
                 });
             } else if (req.kind == REQ_ACCEPT) {
@@ -206,7 +202,7 @@ exports.acceptor = function(storage, comm, opts) {
                     accepted_val = req.val;
                     respond(req, RES_ACCEPTED);
                   } else {
-                    // TODO: Save error.
+                    tot_accept_nack_storage = tot_accept_nack_storage + 1;
                     respond(req, RES_NACK);
                   }
                 });
@@ -216,16 +212,17 @@ exports.acceptor = function(storage, comm, opts) {
               respond(req, RES_NACK);
             }
           } else {
-            // TODO: Saw an obsolete ballot number.
-            respond(req, RES_NACK);
+            tot_accept_nack_behind = tot_accept_nack_behind + 1;
+            respond(req, RES_NACK,
+                    { // Allow requestor to catch up to our accepted value.
+                      "accepted_ballot": accepted_ballot,
+                      "accepted_val":    accepted_val } );
           }
         } else {
-          // TODO: Couldn't read slot state.
+          tot_accept_nack_storage = tot_accept_nack_storage + 1;
           respond(req, RES_NACK);
         }
       }
-
-      tot_accept_loop = tot_accept_loop + 1;
     } else {
       tot_accept_bad_req = tot_accept_bad_req + 1;
       log("paxos.accept - bad req");
@@ -242,8 +239,7 @@ exports.acceptor = function(storage, comm, opts) {
   }
 
   function stats() {
-    return { "tot_accept_loop"         : tot_accept_loop,
-             "tot_accept_bad_req"      : tot_accept_bad_req,
+    return { "tot_accept_bad_req"      : tot_accept_bad_req,
              "tot_accept_bad_req_kind" : tot_accept_bad_req_kind,
              "tot_accept_recv"         : tot_accept_recv,
              "tot_accept_send"         : tot_accept_send,
@@ -284,13 +280,13 @@ function ballot_mk(seq_num, proposer_name, proposer_restarts) {
   return [seq_num, proposer_name, proposer_restarts];
 }
 
+var BOTTOM_BALLOT = ballot_mk(-1, -1, -1);
+
 function ballot_inc(ballot) {
   return mk_ballot(ballot[BALLOT_SEQ_NUM] + 1,
                    ballot[BALLOT_PROPOSER_NAME],
                    ballot[BALLOT_PROPOSER_RESTARTS]);
 }
-
-var BOTTOM_BALLOT = ballot_mk(-1, -1, -1);
 
 function ballot_gte(a, b) { // Greater than or equal.
   a = a || BOTTOM_BALLOT;
