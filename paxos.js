@@ -29,15 +29,15 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
     var timer = null;
     var ballot = next_ballot();
 
-    // The proposer has two sequential phases: propose & accept.
+    // Run through two similar, sequential phases: propose & accept.
     //
     phase(REQ_PROPOSE, RES_PROPOSED, {},
           function(err, info) {
-            if (!err) {
+            if (err) {
+              cb(err, info);
+            } else {
               phase(REQ_ACCEPT, RES_ACCEPTED, { "val": val }, cb);
-              return;
             }
-            cb(err, info);
           });
 
     function phase(kind, yea_kind, req, cb_phase) {
