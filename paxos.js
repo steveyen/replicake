@@ -29,7 +29,7 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
     var timer = null;
     var ballot = next_ballot();
 
-    // The proposer has two sequential phases: promise & accept.
+    // The proposer has two sequential phases: propose & accept.
     //
     phase(REQ_PROPOSE, RES_PROPOSED, {},
           function(err, info) {
