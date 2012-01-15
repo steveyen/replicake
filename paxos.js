@@ -1,10 +1,10 @@
 var assert = require('assert');
 
-var RES_NACK     = 1;
-var REQ_PROPOSE  = 10;
-var RES_PROPOSED = 11;
-var REQ_ACCEPT   = 20;
-var RES_ACCEPTED = 21;
+var RES_NACK     = exports.RES_NACK     = 1;
+var REQ_PROPOSE  = exports.REQ_PROPOSE  = 10;
+var RES_PROPOSED = exports.RES_PROPOSED = 11;
+var REQ_ACCEPT   = exports.RES_ACCEPT   = 20;
+var RES_ACCEPTED = exports.RES_ACCEPTED = 21;
 
 exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opts) {
   assert(node_name != null);
@@ -68,6 +68,10 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
         timer_clear(timer);
         timer = null;
 
+        if (opts.msg_preprocess) {
+          res = opts.msg_preprocess(src, res);
+        }
+
         // Stop when recv()'ed votes reach tally quorum, either yea or nay.
         //
         if (is_member(acceptors, src) &&
@@ -81,6 +85,10 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
             tot_propose_vote = tot_propose_vote + 1;
             votes[votes.length] = src;
             if (votes.length >= vkind[1]) {
+              if (opts.on_phase_complete) {
+                opts.on_phase_complete(yea_kind, vkind[2]);
+              }
+
               cb_phase(vkind[2],
                        { "highest_proposed_ballot": res.highest_proposed_ballot,
                          "accepted_ballot":         res.accepted_ballot,
@@ -234,6 +242,9 @@ exports.acceptor = function(storage, comm, opts) {
     msg.kind = kind;
     msg.req = req;
     msg.highest_proposed_ballot = highest_proposed_ballot;
+    if (opts.respond_preprocess) {
+      msg = opts.respond_preproces(msg);
+    }
     comm.send(req.sender, msg);
     tot_accept_send = tot_accept_send + 1;
   }
@@ -260,6 +271,8 @@ exports.acceptor = function(storage, comm, opts) {
 function majority(n) {
   return Math.floor(n / 2) + 1;
 }
+
+exports.majority = majority;
 
 function is_member(collection, item) {
   for (var i in collection) {
