@@ -65,20 +65,36 @@ function create_test() {
 }
 create_test();
 
+// ------------------------------------------------
+
+var broadcasts = [];
+propose_phase_test();
+
 function propose_phase_test() {
   console.log("propose_phase_test...");
-  var broadcasts = [];
   var comm = {
     "broadcast": function(acceptors, msg) {
+      console.log("  received: " + acceptors + ", " + JSON.stringify(msg));
       broadcasts[broadcasts.length] = [acceptors, msg];
     }
   }
-  var proposer = paxos.proposer('A', 1, 0, ['A'], comm, null);
-  proposer.propose(123,
-                   function(err, info) {
-                   });
-  console.log("propose_phase_test... ok");
+  var proposer = paxos.proposer('A', 1, 0, ['A'], comm, { proposer_timeout: 100 });
+  proposer.propose(123, propose_phase_test_part1);
 }
-propose_phase_test();
 
-console.log("DONE.");
+function propose_phase_test_part1(err, info) {
+  assert(err == 'timeout');
+  assert(broadcasts.length == 1);
+  assert(broadcasts[0][0] == 'A');
+  assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
+  assert(broadcasts[0][1].ballot);
+
+  console.log("propose_phase_test... ok");
+
+  done();
+}
+
+function done() {
+  console.log("DONE.");
+}
+
