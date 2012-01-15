@@ -86,14 +86,16 @@ function mock_comm(label) {
 
 function log(msg) { console.log("     " + msg); }
 
+var to_s = JSON.stringify;
 var blackboard = {};
 
 propose_phase_test();
 
 function propose_phase_test() {
   console.log(".. propose_phase_test");
-  var proposer = paxos.proposer('A', 1, 0, ['B'], mock_comm(),
-                                { proposer_timeout: 100 });
+  var proposer = blackboard.proposer =
+    paxos.proposer('A', 1, 0, ['B'], mock_comm(),
+                   { proposer_timeout: 100 });
   proposer.propose(123, propose_phase_test1);
 }
 
@@ -104,13 +106,15 @@ function propose_phase_test1(err, info) {
   assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
   assert(paxos.ballot_eq(broadcasts[0][1].ballot,
                          paxos.ballot_mk(0, 'A', 1)));
+  assert(blackboard.proposer.stats().tot_propose_phase == 1);
 
   log("propose_phase_test1... done");
 
   // Two propose() calls.
   blackboard.callback_count = 0;
-  var proposer = paxos.proposer('A', 1, 0, ['B'], mock_comm(),
-                                { proposer_timeout: 100 });
+  var proposer = blackboard.proposer =
+    paxos.proposer('A', 1, 0, ['B'], mock_comm(),
+                   { proposer_timeout: 100 });
   proposer.propose(123, propose_phase_test2);
   proposer.propose(234, propose_phase_test2);
 }
@@ -133,6 +137,7 @@ function propose_phase_test2(err, info) {
   assert(broadcasts[1][1].kind == paxos.REQ_PROPOSE);
   assert(paxos.ballot_eq(broadcasts[1][1].ballot,
                          paxos.ballot_mk(1, 'A', 1)));
+  assert(blackboard.proposer.stats().tot_propose_phase == 2);
 
   log("propose_phase_test2... done");
 
