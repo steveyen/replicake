@@ -57,43 +57,46 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
       tally[RES_NACK] = [ [], nay_needed, "rejected" ];
 
       self.on_msg = function(src, res) {
-        if (timer != null) {
-          timer_clear(timer);
-          timer = null;
+        tot_propose_recv = tot_propose_recv + 1;
 
-          tot_propose_recv = tot_propose_recv + 1;
+        if (!timer) {
+          log("paxos.propose - late message: " + res + " from src: " + src);
+          return; // Drop/ignore late messages.
+        }
 
-          // Stop when recv()'ed votes reach tally quorum, either yea or nay.
-          //
-          if (is_member(acceptors, src) &&
-              res != null &&
-              res.req != null &&
-              ballot_eq(res.req.ballot, ballot) &&
-              tally[res.kind] != null) {
-            var vkind = tally[res.kind];
-            var votes = vkind[0];
-            if (!is_member(votes, src)) {
-              tot_propose_vote = tot_propose_vote + 1;
-              votes[votes.length] = src;
-              if (votes.length >= vkind[1]) {
-                cb_phase(vkind[2],
-                         { "highest_proposed_ballot": res.highest_proposed_ballot,
-                           "accepted_ballot":         res.accepted_ballot,
-                           "accepted_val":            res.accepted_val });
-                return;
-              }
-            } else {
-              tot_propose_vote_repeat = tot_propose_vote_repeat + 1;
-              log("paxos.propose - repeat vote: " + res + " from src: " + src);
+        timer_clear(timer);
+        timer = null;
+
+        // Stop when recv()'ed votes reach tally quorum, either yea or nay.
+        //
+        if (is_member(acceptors, src) &&
+            res != null &&
+            res.req != null &&
+            ballot_eq(res.req.ballot, ballot) &&
+            tally[res.kind] != null) {
+          var vkind = tally[res.kind];
+          var votes = vkind[0];
+          if (!is_member(votes, src)) {
+            tot_propose_vote = tot_propose_vote + 1;
+            votes[votes.length] = src;
+            if (votes.length >= vkind[1]) {
+              cb_phase(vkind[2],
+                       { "highest_proposed_ballot": res.highest_proposed_ballot,
+                         "accepted_ballot":         res.accepted_ballot,
+                         "accepted_val":            res.accepted_val });
+              return;
             }
           } else {
-            tot_propose_recv_err = tot_propose_recv_err + 1;
-            log("paxos.propose - bad msg: " + res + " from src: " + src);
+            tot_propose_vote_repeat = tot_propose_vote_repeat + 1;
+            log("paxos.propose - repeat vote: " + res + " from src: " + src);
           }
-
-          tot_propose_phase_loop = tot_propose_phase_loop + 1;
-          timer_restart();
+        } else {
+          tot_propose_recv_err = tot_propose_recv_err + 1;
+          log("paxos.propose - bad msg: " + res + " from src: " + src);
         }
+
+        tot_propose_phase_loop = tot_propose_phase_loop + 1;
+        timer_restart();
       }
 
       function restart_timer() {
