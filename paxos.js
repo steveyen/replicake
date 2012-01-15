@@ -30,11 +30,11 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
     //
     phase({ "kind": REQ_PROPOSE, "ballot": ballot }, RES_PROPOSED,
           function(err) {
-            if (err) {
-              cb(err);
-            } else {
+            if (!err) {
               phase({ "kind": REQ_ACCEPT, "ballot": ballot }, RES_ACCEPTED, cb);
+              return;
             }
+            cb(err);
           });
 
     function phase(req, yea_kind, cb_phase) {
@@ -42,10 +42,12 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
 
       broadcast(acceptors, req);
 
-      var needs = quorum(acceptors.length);
+      var yea_needed = quorum(acceptors.length);
+      var nay_needed = acceptors.length - yea_needed + 1;
+
       var tally = {};
-      tally[yea_kind] = [ {}, needs, null ];
-      tally[RES_NACK] = [ {}, acceptors.length - needs + 1, "rejected" ];
+      tally[yea_kind] = [ [], yea_needed, null ];
+      tally[RES_NACK] = [ [], nay_needed, "rejected" ];
 
       var timer = null;
       function restart_timer() {
@@ -63,12 +65,13 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
           timer_clear(timer);
           timer = null;
 
-          tot_propose_recv = total_propose_recv + 1;
+          tot_propose_recv = tot_propose_recv + 1;
 
           // Stop when recv()'ed votes reach tally quorum, either yea or nay.
           //
           if (is_member(acceptors, src) &&
-              res != null && res.req != null && res.req.ballot != null &&
+              res != null &&
+              res.req != null &&
               ballot_eq(res.req.ballot, ballot) &&
               tally[res.kind] != null) {
             var vkind = tally[res.kind];
@@ -77,9 +80,10 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
               tot_propose_vote = tot_propose_vote + 1;
               votes[votes.length] = src;
               if (votes.length >= vkind[1]) {
-                cb_phase(vkind[2], { "ballot": res.accepted_ballot,
-                                     "val": res.accepted_val,
-                                     "proposal_ballot": res.proposal_ballot });
+                cb_phase(vkind[2],
+                         { "highest_proposed_ballot": res.highest_proposed_ballot,
+                           "accepted_ballot":         res.accepted_ballot,
+                           "accepted_val":            res.accepted_val });
                 return;
               }
             } else {
@@ -91,7 +95,7 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
             log("paxos.propose - bad msg: " + res + " from src: " + src);
           }
 
-          total_propose_phase_loop = tot_propose_phase_loop + 1;
+          tot_propose_phase_loop = tot_propose_phase_loop + 1;
           timer_restart();
         }
       }
@@ -217,7 +221,7 @@ exports.acceptor = function(node_name, opts) {
       msg.req = req;
       msg.highest_proposed_ballot = highest_proposed_ballot;
       send(req.sender, msg);
-      tot_accept_send = total_accept_send + 1;
+      tot_accept_send = tot_accept_send + 1;
     }
   }
 
