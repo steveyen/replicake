@@ -67,8 +67,8 @@ create_test();
 
 // ------------------------------------------------
 
-var broadcasts = [];
-function mk_comm(label) {
+var broadcasts = []; // Records all the broadcasts by a mock comm.
+function mock_comm(label) {
   label = label || "";
   if (label.length > 0) {
     label = label + " ";
@@ -88,7 +88,7 @@ propose_phase_test();
 
 function propose_phase_test() {
   console.log(".. propose_phase_test");
-  var proposer = paxos.proposer('A', 1, 0, ['B'], mk_comm(),
+  var proposer = paxos.proposer('A', 1, 0, ['B'], mock_comm(),
                                 { proposer_timeout: 100 });
   proposer.propose(123, propose_phase_test1);
 }
