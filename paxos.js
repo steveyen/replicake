@@ -329,17 +329,3 @@ exports.ballot_inc = ballot_inc;
 exports.ballot_gte = ballot_gte;
 exports.ballot_eq  = ballot_eq;
 
-function ballot_test() {
-  var a = ballot_mk(1, 0, 0);
-  var assert = require('assert');
-  assert(ballot_gte(a, BOTTOM_BALLOT));
-  assert(ballot_gte(ballot_mk(1, 1, 1), a));
-  assert(ballot_gte(ballot_mk(1, 1, 0), a));
-  assert(ballot_gte(ballot_mk(1, 0, 1), a));
-  assert(ballot_gte(ballot_mk(1, 0, 0), a));
-  assert(!ballot_gte(ballot_mk(0, 0, 0), a));
-  assert(!ballot_gte(ballot_mk(0, 0, 1), a));
-  assert(!ballot_gte(ballot_mk(0, 1, 0), a));
-  assert(!ballot_gte(ballot_mk(0, 1, 1), a));
-}
-
