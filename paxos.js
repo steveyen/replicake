@@ -261,16 +261,16 @@ function is_member(collection, item) {
 // ----------------------------------------------------------------
 
 var BALLOT_SEQ_NUM           = 0;
-var BALLOT_PROPOSER          = 1;
+var BALLOT_PROPOSER_NAME     = 1;
 var BALLOT_PROPOSER_RESTARTS = 2;
 
-function ballot_mk(seq_num, proposer, proposer_restarts) {
-  return [seq_num, proposer, proposer_restarts];
+function ballot_mk(seq_num, proposer_name, proposer_restarts) {
+  return [seq_num, proposer_name, proposer_restarts];
 }
 
 function ballot_inc(ballot) {
   return mk_ballot(ballot[BALLOT_SEQ_NUM] + 1,
-                   ballot[BALLOT_PROPOSER],
+                   ballot[BALLOT_PROPOSER_NAME],
                    ballot[BALLOT_PROPOSER_RESTARTS]);
 }
 
