@@ -38,4 +38,18 @@ function majority_test() {
 }
 majority_test();
 
+function is_member_test() {
+  console.log("is_member_test...");
+  with (paxos) {
+    assert(is_member([10], 10));
+    assert(is_member([10,20], 10));
+    assert(is_member([10,20], 20));
+    assert(!is_member([10,20], 30));
+    assert(!is_member([10], 30));
+    assert(!is_member([], 30));
+  }
+  console.log("is_member_test... ok");
+}
+is_member_test();
+
 console.log("DONE.");

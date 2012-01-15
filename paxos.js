@@ -271,7 +271,6 @@ exports.acceptor = function(storage, comm, opts) {
 function majority(n) {
   return Math.floor(n / 2) + 1;
 }
-
 exports.majority = majority;
 
 function is_member(collection, item) {
@@ -282,6 +281,7 @@ function is_member(collection, item) {
   }
   return false;
 }
+exports.is_member = is_member;
 
 // ----------------------------------------------------------------
 
