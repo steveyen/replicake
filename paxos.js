@@ -32,12 +32,12 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
     // The proposer has two sequential phases: promise & accept.
     //
     phase(REQ_PROPOSE, RES_PROPOSED, {},
-          function(err) {
+          function(err, info) {
             if (!err) {
               phase(REQ_ACCEPT, RES_ACCEPTED, { "val": val }, cb);
               return;
             }
-            cb(err);
+            cb(err, info);
           });
 
     function phase(kind, yea_kind, req, cb_phase) {
@@ -95,17 +95,18 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
           timer_restart();
         }
       }
-    }
 
-    function restart_timer() {
-      timer = timer_start(proposer_timeout,
-                          function() {
-                            tot_propose_timeout = tot_propose_timeout + 1;
-                            if (timer != null) {
-                              timer = null;
-                              cb_phase('timeout');
-                            }
-                          });
+      function restart_timer() {
+        assert(!timer);
+        timer = timer_start(proposer_timeout,
+                            function() {
+                              tot_propose_timeout = tot_propose_timeout + 1;
+                              if (timer != null) {
+                                timer = null;
+                                cb_phase('timeout');
+                              }
+                            });
+      }
     }
 
     return self; // Provids a self.on_msg(src, msg) function.
@@ -218,12 +219,13 @@ exports.acceptor = function(storage, comm, opts) {
           // TODO: Couldn't read slot state.
           respond(req, RES_NACK);
         }
+      }
+
+      tot_accept_loop = tot_accept_loop + 1;
     } else {
       tot_accept_bad_req = tot_accept_bad_req + 1;
       log("paxos.accept - bad req");
     }
-
-    tot_accept_loop = tot_accept_loop + 1;
   }
 
   function respond(req, kind, msg) {
