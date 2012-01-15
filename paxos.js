@@ -6,11 +6,12 @@ var RES_PROPOSED = 11;
 var REQ_ACCEPT   = 20;
 var RES_ACCEPTED = 21;
 
-exports.proposer = function(start_ballot, acceptors, key, opts) {
-  assert(acceptors != null && acceptors.length > 0);
-  assert(key != null);
-  opts = opts || {};
+exports.proposer = function(node_name, node_restarts, acceptors, opts) {
+  assert(node_name != null);
+  assert(node_restarts > 0);
+  assert(acceptors.length > 0);
 
+  opts = opts || {};
   var proposer_timeout = opts.proposer_timeout || 3; // In seconds.
   var quorum           = opts.quorum || majority;
 
@@ -97,7 +98,7 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
     }
   }
 
-  var cur_ballot = start_ballot;
+  var cur_ballot = ballot_mk(-1, node_name, node_restarts);
   function next_ballot() {
     cur_ballot = ballot_inc(cur_ballot);
     return cur_ballot;
@@ -125,10 +126,10 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
 
 // ----------------------------------------------------------------
 
-exports.acceptor = function(key, opts) {
-  assert(key != null);
-  opts = opts || {};
+exports.acceptor = function(node_name, opts) {
+  assert(node_name != null);
 
+  opts = opts || {};
   var acceptor_timeout = opts.acceptor_timeout || 3; // In seconds.
   var quorum           = opts.quorum || majority;
 
