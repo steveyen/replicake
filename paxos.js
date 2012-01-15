@@ -6,7 +6,7 @@ var RES_PROPOSED = 11;
 var REQ_ACCEPT   = 20;
 var RES_ACCEPTED = 21;
 
-exports.proposer = function(node_name, node_restarts, acceptors, opts) {
+exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
   assert(node_name != null);
   assert(node_restarts > 0);
   assert(acceptors.length > 0);
@@ -22,25 +22,32 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
   var tot_propose_recv_err    = 0;
   var tot_propose_vote        = 0;
   var tot_propose_vote_repeat = 0;
+  var tot_propose_timeout     = 0;
 
   function propose(val, cb) {
+    var timer = null;
     var ballot = next_ballot();
 
     // The proposer has two sequential phases: promise & accept.
     //
-    phase({ "kind": REQ_PROPOSE, "ballot": ballot }, RES_PROPOSED,
+    phase(REQ_PROPOSE, RES_PROPOSED, {},
           function(err) {
             if (!err) {
-              phase({ "kind": REQ_ACCEPT, "ballot": ballot }, RES_ACCEPTED, cb);
+              phase(REQ_ACCEPT, RES_ACCEPTED, { "val": val }, cb);
               return;
             }
             cb(err);
           });
 
-    function phase(req, yea_kind, cb_phase) {
+    function phase(kind, yea_kind, req, cb_phase) {
       tot_propose_phase = tot_propose_phase + 1;
 
-      broadcast(acceptors, req);
+      req.kind   = kind;
+      req.ballot = ballot;
+
+      comm.broadcast(acceptors, req);
+
+      restart_timer();
 
       var yea_needed = quorum(acceptors.length);
       var nay_needed = acceptors.length - yea_needed + 1;
@@ -49,18 +56,7 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
       tally[yea_kind] = [ [], yea_needed, null ];
       tally[RES_NACK] = [ [], nay_needed, "rejected" ];
 
-      var timer = null;
-      function restart_timer() {
-        timer = timer_start(proposer_timeout, function() {
-            if (timer != null) {
-              timer = null;
-              cb_phase('timeout');
-            }
-          });
-      }
-      restart_timer();
-
-      function on_recv(src, res) {
+      comm.on_msg = function(src, res) {
         if (timer != null) {
           timer_clear(timer);
           timer = null;
@@ -100,6 +96,17 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
         }
       }
     }
+
+    function restart_timer() {
+      timer = timer_start(proposer_timeout,
+                          function() {
+                            tot_propose_timeout = tot_propose_timeout + 1;
+                            if (timer != null) {
+                              timer = null;
+                              cb_phase('timeout');
+                            }
+                          });
+    }
   }
 
   var cur_ballot = ballot_mk(-1, node_name, node_restarts);
@@ -115,27 +122,27 @@ exports.proposer = function(node_name, node_restarts, acceptors, opts) {
              "tot_propose_recv"        : tot_propose_recv,
              "tot_propose_recv_err"    : tot_propose_recv_err,
              "tot_propose_vote"        : tot_propose_vote,
-             "tot_propose_vote_repeat" : tot_propose_vote_repeat };
+             "tot_propose_vote_repeat" : tot_propose_vote_repeat,
+             "tot_propose_timeout"     : tot_propose_timeout };
   }
 
-  var self = {
-    "propose": propose,
-    "propose_req": function(req, res) {},
-    "propose_res": function(req, res) {},
-    "accept_res": function(req, res) {},
-    "stats": stats
-  };
-  return self;
+  return { "propose": propose,
+           "stats": stats };
 };
 
 // ----------------------------------------------------------------
 
-exports.acceptor = function(node_name, opts) {
+exports.acceptor = function(node_name, storage, initial_state, comm, opts) {
   assert(node_name != null);
 
   opts = opts || {};
   var acceptor_timeout = opts.acceptor_timeout || 3; // In seconds.
   var quorum           = opts.quorum || majority;
+
+  initial_state = initial_state || {};
+  var highest_proposed_ballot = initial_state.highest_proposed_ballot;
+  var accepted_ballot         = initial_state.accepted_ballot;
+  var accepted_val            = initial_state.accepted_val;
 
   var tot_accept_loop         = 0; // Stats counters.
   var tot_accept_bad_req      = 0;
@@ -149,80 +156,72 @@ exports.acceptor = function(node_name, opts) {
   var tot_accept_nack_storage = 0;
   var tot_accept_nack_behind  = 0;
 
-  function accept(storage, initial_state) {
-    initial_state = initial_state || {};
-
-    var highest_proposed_ballot = initial_state.highest_proposed_ballot;
-    var accepted_ballot         = initial_state.accepted_ballot;
-    var accepted_val            = initial_state.accepted_val;
-
-    function on_recv(req) {
-      tot_accept_recv = tot_accept_recv + 1;
-      if (req != null && req.ballot != null) {
-        // The acceptor's main responsibility is to process incoming
-        // propose or accept requests with higher ballots.
-        //
-        if (ballot_gte(req.ballot, highest_proposed_ballot)) {
-          if (req.kind == REQ_PROPOSE) {
-            tot_accept_propose = tot_accept_propose + 1;
-            comm.pause();
-            storage.save_highest_proposed_ballot(
-              req.ballot,
-              function(err) {
-                if (!err) {
-                  tot_accept_proposed = tot_accept_proposed + 1;
-                  highest_proposed_ballot = req.ballot;
-                  respond(req, RES_PREPARED);
-                } else {
-                  respond(req, RES_NACK,
-                          { // Allow requestor to catch up to our accepted value.
-                            "accepted_ballot": accepted_ballot,
-                            "accepted_val":    accepted_val } );
-                }
-                comm.unpause();
-              });
-          } else if (req.kind == REQ_ACCEPT) {
-            tot_accept_accept = tot_accept_accept + 1;
-            comm.pause();
-            storage.save_accepted(
-              req.ballot,
-              req.val,
-              function(err) {
-                if (!err) {
-                  tot_accept_accepted = tot_accept_accepted + 1;
-                  highest_proposed_ballot = req.ballot;
-                  accepted_ballot = req.ballot;
-                  accepted_val = req.val;
-                  respond(req, RES_ACCEPTED);
-                } else {
-                  respond(req, RES_NACK);
-                }
-                comm.unpause();
-              });
-          } else {
-            tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
-            log("paxos.accept - unknown req.kind: " + req.kind);
-            respond(req, RES_NACK);
-          }
+  function on_msg(src, req) {
+    tot_accept_recv = tot_accept_recv + 1;
+    if (req != null && req.ballot != null) {
+      // The acceptor's main responsibility is to process incoming
+      // propose or accept requests with higher ballots.
+      //
+      if (ballot_gte(req.ballot, highest_proposed_ballot)) {
+        if (req.kind == REQ_PROPOSE) {
+          tot_accept_propose = tot_accept_propose + 1;
+          comm.pause();
+          storage.save_highest_proposed_ballot(
+            req.ballot,
+            function(err) {
+              if (!err) {
+                tot_accept_proposed = tot_accept_proposed + 1;
+                highest_proposed_ballot = req.ballot;
+                respond(req, RES_PREPARED);
+              } else {
+                respond(req, RES_NACK,
+                        { // Allow requestor to catch up to our accepted value.
+                          "accepted_ballot": accepted_ballot,
+                          "accepted_val":    accepted_val } );
+              }
+              comm.unpause();
+            });
+        } else if (req.kind == REQ_ACCEPT) {
+          tot_accept_accept = tot_accept_accept + 1;
+          comm.pause();
+          storage.save_accepted(
+            req.ballot,
+            req.val,
+            function(err) {
+              if (!err) {
+                tot_accept_accepted = tot_accept_accepted + 1;
+                highest_proposed_ballot = req.ballot;
+                accepted_ballot = req.ballot;
+                accepted_val = req.val;
+                respond(req, RES_ACCEPTED);
+              } else {
+                respond(req, RES_NACK);
+              }
+              comm.unpause();
+            });
         } else {
+          tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
+          log("paxos.accept - unknown req.kind: " + req.kind);
           respond(req, RES_NACK);
         }
       } else {
-        tot_accept_bad_req = tot_accept_bad_req + 1;
-        log("paxos.accept - bad req");
+        respond(req, RES_NACK);
       }
-
-      tot_accept_loop = tot_accept_loop + 1;
+    } else {
+      tot_accept_bad_req = tot_accept_bad_req + 1;
+      log("paxos.accept - bad req");
     }
 
-    function respond(req, kind, msg) {
-      msg = msg || {};
-      msg.kind = kind;
-      msg.req = req;
-      msg.highest_proposed_ballot = highest_proposed_ballot;
-      send(req.sender, msg);
-      tot_accept_send = tot_accept_send + 1;
-    }
+    tot_accept_loop = tot_accept_loop + 1;
+  }
+
+  function respond(req, kind, msg) {
+    msg = msg || {};
+    msg.kind = kind;
+    msg.req = req;
+    msg.highest_proposed_ballot = highest_proposed_ballot;
+    comm.send(req.sender, msg);
+    tot_accept_send = tot_accept_send + 1;
   }
 
   function stats() {
@@ -239,12 +238,8 @@ exports.acceptor = function(node_name, opts) {
              "tot_accept_nack_behind"  : tot_accept_nack_behind };
   }
 
-  var self = {
-    "accept": accept,
-    "accept_req": function(req, res) {},
-    "stats": stats
-  };
-  return self;
+  return { "on_msg": on_msg,
+           "stats":  stats };
 };
 
 // ----------------------------------------------------------------
