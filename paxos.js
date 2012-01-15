@@ -6,7 +6,7 @@ var RES_PROPOSED = 11;
 var REQ_ACCEPT   = 20;
 var RES_ACCEPTED = 21;
 
-exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
+exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opts) {
   assert(node_name != null);
   assert(node_restarts > 0);
   assert(acceptors.length > 0);
@@ -43,11 +43,10 @@ exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
     function phase(kind, yea_kind, req, cb_phase) {
       tot_propose_phase = tot_propose_phase + 1;
 
+      req.slot   = slot;
       req.kind   = kind;
       req.ballot = ballot;
-
       comm.broadcast(acceptors, req);
-
       restart_timer();
 
       var yea_needed = quorum(acceptors.length);
@@ -109,7 +108,7 @@ exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
                           });
     }
 
-    return self;
+    return self; // Provids a self.on_msg(src, msg) function.
   }
 
   var cur_ballot = ballot_mk(-1, node_name, node_restarts);
@@ -161,7 +160,9 @@ exports.acceptor = function(node_name, storage, initial_state, comm, opts) {
 
   function on_msg(src, req) {
     tot_accept_recv = tot_accept_recv + 1;
-    if (req != null && req.ballot != null) {
+    if (req != null &&
+        req.slot != null &&
+        req.ballot != null) {
       // The acceptor's main responsibility is to process incoming
       // propose or accept requests with higher ballots.
       //
@@ -170,6 +171,7 @@ exports.acceptor = function(node_name, storage, initial_state, comm, opts) {
           tot_accept_propose = tot_accept_propose + 1;
           comm.pause();
           storage.save_highest_proposed_ballot(
+            req.slot,
             req.ballot,
             function(err) {
               if (!err) {
@@ -188,6 +190,7 @@ exports.acceptor = function(node_name, storage, initial_state, comm, opts) {
           tot_accept_accept = tot_accept_accept + 1;
           comm.pause();
           storage.save_accepted(
+            req.slot,
             req.ballot,
             req.val,
             function(err) {
