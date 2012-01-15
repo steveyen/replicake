@@ -93,6 +93,7 @@ propose_phase_test();
 
 function propose_phase_test() {
   console.log(".. propose_phase_test");
+  log("propose_phase_test1...");
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B'], mock_comm(),
                    { proposer_timeout: 100 });
@@ -102,13 +103,15 @@ function propose_phase_test() {
 function propose_phase_test1(err, info) {
   assert(err == 'timeout');
   assert(broadcasts.length == 1);
-  assert(broadcasts[0][0] == 'B');
+  assert(broadcasts[0][0].length == 1);
+  assert(broadcasts[0][0][0] == 'B');
   assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
   assert(paxos.ballot_eq(broadcasts[0][1].ballot,
                          paxos.ballot_mk(0, 'A', 1)));
   assert(blackboard.proposer.stats().tot_propose_phase == 1);
 
   log("propose_phase_test1... done");
+  log("propose_phase_test2...");
 
   // Two propose() calls.
   blackboard.callback_count = 0;
@@ -129,17 +132,46 @@ function propose_phase_test2(err, info) {
   }
 
   assert(broadcasts.length == 2);
-  assert(broadcasts[0][0] == 'B');
+  assert(broadcasts[0][0].length == 1);
+  assert(broadcasts[0][0][0] == 'B');
   assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
   assert(paxos.ballot_eq(broadcasts[0][1].ballot,
                          paxos.ballot_mk(0, 'A', 1)));
-  assert(broadcasts[1][0] == 'B');
+  assert(broadcasts[1][0].length == 1);
+  assert(broadcasts[1][0][0] == 'B');
   assert(broadcasts[1][1].kind == paxos.REQ_PROPOSE);
   assert(paxos.ballot_eq(broadcasts[1][1].ballot,
                          paxos.ballot_mk(1, 'A', 1)));
   assert(blackboard.proposer.stats().tot_propose_phase == 2);
 
   log("propose_phase_test2... done");
+
+  propose_2_acceptors_test();
+}
+
+function propose_2_acceptors_test() {
+  log("propose_2_acceptors_test...");
+
+  blackboard.callback_count = 0;
+  var proposer = blackboard.proposer =
+    paxos.proposer('A', 1, 0, ['B', 'C'], mock_comm(),
+                   { proposer_timeout: 100 });
+  proposer.propose(123, propose_2_acceptors_test2);
+}
+
+function propose_2_acceptors_test2(err, info) {
+  assert(err == 'timeout');
+  assert(broadcasts.length == 1);
+  assert(broadcasts[0][0].length == 2);
+  assert(broadcasts[0][0][0] == 'B');
+  assert(broadcasts[0][0][1] == 'C');
+  assert(broadcasts[0][1].kind == paxos.REQ_PROPOSE);
+  assert(paxos.ballot_eq(broadcasts[0][1].ballot,
+                         paxos.ballot_mk(0, 'A', 1)));
+  assert(blackboard.proposer.stats().tot_propose_phase == 1);
+  assert(blackboard.proposer.stats().tot_propose_send == 2);
+
+  log("propose_2_acceptors_test...done");
 
   console.log("ok propose_phase_test");
 
