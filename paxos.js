@@ -47,6 +47,7 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
       req.kind   = kind;
       req.ballot = ballot;
       comm.broadcast(acceptors, req);
+      tot_propose_send = tot_propose_send + acceptors.length;
       restart_timer();
 
       var yea_needed = quorum(acceptors.length);
