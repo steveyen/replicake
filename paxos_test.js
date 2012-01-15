@@ -68,6 +68,7 @@ create_test();
 // ------------------------------------------------
 
 var broadcasts = []; // Records all the broadcasts by a mock comm.
+
 function mock_comm(label) {
   label = label || "";
   if (label.length > 0) {
@@ -83,11 +84,9 @@ function mock_comm(label) {
   return comm;
 }
 
-function log(msg) {
-  console.log("     " + msg);
-}
+function log(msg) { console.log("     " + msg); }
 
-var state = {};
+var blackboard = {};
 
 propose_phase_test();
 
@@ -109,7 +108,7 @@ function propose_phase_test1(err, info) {
   log("propose_phase_test1... done");
 
   // Two propose() calls.
-  state.callback_count = 0;
+  blackboard.callback_count = 0;
   var proposer = paxos.proposer('A', 1, 0, ['B'], mock_comm(),
                                 { proposer_timeout: 100 });
   proposer.propose(123, propose_phase_test2);
@@ -119,9 +118,9 @@ function propose_phase_test1(err, info) {
 function propose_phase_test2(err, info) {
   // Should be called twice.
   assert(err == 'timeout');
-  state.callback_count++;
-  assert(state.callback_count <= 2);
-  if (state.callback_count < 2) {
+  blackboard.callback_count++;
+  assert(blackboard.callback_count <= 2);
+  if (blackboard.callback_count < 2) {
     return;
   }
 
