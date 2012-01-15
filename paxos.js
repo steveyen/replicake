@@ -6,21 +6,6 @@ var RES_PROPOSED = 11;
 var REQ_ACCEPT   = 20;
 var RES_ACCEPTED = 21;
 
-function majority(n) {
-  return Math.floor(n / 2) + 1;
-}
-
-function is_member(collection, item) {
-  for (var i in collection) {
-    if (collection[i] == item) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// ----------------------------------------------------------------
-
 exports.proposer = function(start_ballot, acceptors, key, opts) {
   assert(acceptors != null && acceptors.length > 0);
   assert(key != null);
@@ -37,17 +22,10 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
   var tot_propose_vote        = 0;
   var tot_propose_vote_repeat = 0;
 
-  var cur_ballot = start_ballot;
-  function next_ballot() {
-    cur_ballot = ballot_inc(cur_ballot);
-    return cur_ballot;
-  }
-
   function propose(val, cb) {
     var ballot = next_ballot();
 
-    // The proposer has two phases: promise & accept, which
-    // are similar and can share the same phase() logic.
+    // The proposer has two sequential phases: promise & accept.
     //
     phase({ "kind": REQ_PROPOSE, "ballot": ballot }, RES_PROPOSED,
           function(err) {
@@ -119,6 +97,12 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
     }
   }
 
+  var cur_ballot = start_ballot;
+  function next_ballot() {
+    cur_ballot = ballot_inc(cur_ballot);
+    return cur_ballot;
+  }
+
   function stats() {
     return { "tot_propose_phase"       : tot_propose_phase,
              "tot_propose_phase_loop"  : tot_propose_phase_loop,
@@ -130,6 +114,7 @@ exports.proposer = function(start_ballot, acceptors, key, opts) {
   }
 
   var self = {
+    "propose": propose,
     "propose_req": function(req, res) {},
     "propose_res": function(req, res) {},
     "accept_res": function(req, res) {},
@@ -250,11 +235,27 @@ exports.acceptor = function(key, opts) {
   }
 
   var self = {
+    "accept": accept,
     "accept_req": function(req, res) {},
     "stats": stats
   };
   return self;
 };
+
+// ----------------------------------------------------------------
+
+function majority(n) {
+  return Math.floor(n / 2) + 1;
+}
+
+function is_member(collection, item) {
+  for (var i in collection) {
+    if (collection[i] == item) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // ----------------------------------------------------------------
 
