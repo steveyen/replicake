@@ -25,6 +25,7 @@ exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
   var tot_propose_timeout     = 0;
 
   function propose(val, cb) {
+    var self = {};
     var timer = null;
     var ballot = next_ballot();
 
@@ -56,7 +57,7 @@ exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
       tally[yea_kind] = [ [], yea_needed, null ];
       tally[RES_NACK] = [ [], nay_needed, "rejected" ];
 
-      comm.on_msg = function(src, res) {
+      self.on_msg = function(src, res) {
         if (timer != null) {
           timer_clear(timer);
           timer = null;
@@ -107,6 +108,8 @@ exports.proposer = function(node_name, node_restarts, acceptors, comm, opts) {
                             }
                           });
     }
+
+    return self;
   }
 
   var cur_ballot = ballot_mk(-1, node_name, node_restarts);
