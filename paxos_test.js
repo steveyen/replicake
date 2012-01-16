@@ -97,6 +97,10 @@ function mock_comm(label) {
 
 var testi = -1; // Current test.
 
+function test_start(test_name) {
+  console.log(".. " + test_name);
+}
+
 function test_ok(test_name) {
   console.log("ok " + test_name);
   testi++;
@@ -110,8 +114,8 @@ function test_ok(test_name) {
 // ------------------------------------------------
 
 function propose_phase_test() {
-  console.log(".. propose_phase_test");
-  log("propose_phase_test1...");
+  test_start("propose_phase_test");
+
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B'], mock_comm(),
                    { proposer_timeout: 100 });
@@ -132,7 +136,7 @@ function propose_phase_test_cb(err, info) {
 }
 
 function propose_two_test() {
-  console.log(".. propose_two_test");
+  test_start("propose_two_test");
 
   // Two propose() calls.
   blackboard.callback_count = 0;
@@ -169,7 +173,7 @@ function propose_two_test_cb(err, info) {
 }
 
 function propose_2_acceptors_test() {
-  console.log(".. propose_2_acceptors_test");
+  test_start("propose_2_acceptors_test");
 
   blackboard.callback_count = 0;
   var proposer = blackboard.proposer =
@@ -194,7 +198,7 @@ function propose_2_acceptors_test_cb(err, info) {
 }
 
 function paxos_1_1_test() {
-  console.log(".. paxos_1_1_test");
+  test_start("paxos_1_1_test");
 
   blackboard = { comm: mock_comm() };
   var storage = blackboard.storage =
