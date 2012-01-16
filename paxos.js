@@ -3,7 +3,7 @@ var assert = require('assert');
 var RES_NACK     = exports.RES_NACK     = 1;
 var REQ_PROPOSE  = exports.REQ_PROPOSE  = 10;
 var RES_PROPOSED = exports.RES_PROPOSED = 11;
-var REQ_ACCEPT   = exports.RES_ACCEPT   = 20;
+var REQ_ACCEPT   = exports.REQ_ACCEPT   = 20;
 var RES_ACCEPTED = exports.RES_ACCEPTED = 21;
 
 exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opts) {
