@@ -73,23 +73,20 @@ function log(msg) { console.log("   " + msg); }
 var to_s = JSON.stringify;
 var blackboard = {};
 
-function mock_comm(label) {
-  label = label || "";
-  if (label.length > 0) {
-    label = label + " ";
-  }
-  blackboard.broadcasts = [];
-  blackboard.sends = [];
+function mock_comm(bb) {
+  bb = bb || blackboard || {};
+  bb.broadcasts = [];
+  bb.sends = [];
   var comm = {
     "broadcast": function(acceptors, msg) {
-      log(label + "received: " + acceptors + ", " + JSON.stringify(msg));
-      blackboard.broadcasts[blackboard.broadcasts.length] = [acceptors, msg];
+      log("received: " + acceptors + ", " + JSON.stringify(msg));
+      bb.broadcasts[bb.broadcasts.length] = [acceptors, msg];
       for (var i in acceptors) {
         comm.send(acceptors[i], msg);
       }
     },
     "send": function(dst, msg) {
-      blackboard.sends[blackboard.sends.length] = [dst, msg];
+      bb.sends[bb.sends.length] = [dst, msg];
     }
   };
   return comm;
@@ -200,7 +197,8 @@ function propose_2_acceptors_test_cb(err, info) {
 function paxos_1_1_test() {
   test_start("paxos_1_1_test");
 
-  blackboard = { comm: mock_comm() };
+  blackboard = {};
+  var comm = blackboard.comm = mock_comm();
   var storage = blackboard.storage =
     { "slot_read": function() {},
       "slot_save_highest_proposed_ballot": function() {},
@@ -211,14 +209,23 @@ function paxos_1_1_test() {
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B'], blackboard.comm,
                    { proposer_timeout: 100 });
-  proposer.propose(123, propose_2_acceptors_test1);
 
-  test_ok("ok paxos_1_1_test");
+  proposer.propose(123, paxos_1_1_test_cb);
+
+  assert(blackboard.broadcasts.length == 1);
+  assert(blackboard.sends.length == 1);
 }
+
+function paxos_1_1_test_cb(err, info) {
+  test_ok("paxos_1_1_test");
+}
+
+// ------------------------------------------------
 
 var tests = [ propose_phase_test,
               propose_two_test,
               propose_2_acceptors_test,
+              paxos_1_1_test,
              ];
 
 test_ok("...");
