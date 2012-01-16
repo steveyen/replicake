@@ -174,9 +174,8 @@ exports.acceptor = function(storage, comm, opts) {
       function on_slot_read(err, slot_state) {
         if (!err) {
           slot_state = slot_state || {};
+
           var highest_proposed_ballot = slot_state.highest_proposed_ballot;
-          var accepted_ballot         = slot_state.accepted_ballot;
-          var accepted_val            = slot_state.accepted_val;
 
           if (ballot_gte(req.ballot, highest_proposed_ballot)) {
             if (req.kind == REQ_PROPOSE) {
@@ -201,8 +200,6 @@ exports.acceptor = function(storage, comm, opts) {
                   if (!err) {
                     tot_accept_accepted = tot_accept_accepted + 1;
                     highest_proposed_ballot = req.ballot;
-                    accepted_ballot = req.ballot;
-                    accepted_val = req.val;
                     respond(RES_ACCEPTED);
                   } else {
                     tot_accept_nack_storage = tot_accept_nack_storage + 1;
