@@ -246,6 +246,7 @@ exports.acceptor = function(storage, comm, opts) {
 
   function respond_full(req, kind, msg) {
     msg = msg || {};
+    msg.slot = req.slot;
     msg.kind = kind;
     msg.req = req;
     if (opts.respond_preprocess) {
