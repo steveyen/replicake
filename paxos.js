@@ -46,6 +46,7 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
       req.slot   = slot;
       req.kind   = kind;
       req.ballot = ballot;
+      req.sender = node_name;
       comm.broadcast(acceptors, req);
       tot_propose_send = tot_propose_send + acceptors.length;
       restart_timer();
@@ -190,7 +191,7 @@ exports.acceptor = function(storage, comm, opts) {
                   if (!err) {
                     tot_accept_proposed = tot_accept_proposed + 1;
                     highest_proposed_ballot = req.ballot;
-                    respond(req, RES_PREPARED);
+                    respond(req, RES_PROPOSED);
                   } else {
                     tot_accept_nack_storage = tot_accept_nack_storage + 1;
                     respond(req, RES_NACK);
@@ -226,9 +227,15 @@ exports.acceptor = function(storage, comm, opts) {
                       "accepted_ballot": accepted_ballot,
                       "accepted_val":    accepted_val } );
           }
+
+          function respond(req, kind, msg) {
+            msg = msg || {};
+            msg.highest_proposed_ballot = highest_proposed_ballot;
+            respond_full(req, kind, msg);
+          }
         } else {
           tot_accept_nack_storage = tot_accept_nack_storage + 1;
-          respond(req, RES_NACK);
+          respond_full(req, RES_NACK);
         }
       }
     } else {
@@ -237,11 +244,10 @@ exports.acceptor = function(storage, comm, opts) {
     }
   }
 
-  function respond(req, kind, msg) {
+  function respond_full(req, kind, msg) {
     msg = msg || {};
     msg.kind = kind;
     msg.req = req;
-    msg.highest_proposed_ballot = highest_proposed_ballot;
     if (opts.respond_preprocess) {
       msg = opts.respond_preproces(msg);
     }
