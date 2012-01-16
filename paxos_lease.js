@@ -5,7 +5,8 @@ var paxos  = require('./paxos');
 // by Trencseni, Gazso, Reinhardt.
 //
 exports.lease_acquirer = function(lease_timeout, // In milliseconds.
-                                  node_name, node_restarts, acceptors, comm, opts) {
+                                  node_name, node_restarts,
+                                  acceptors, comm, opts) {
   opts = opts || {};
   opts.msg_preprocess = function(src, msg) {
     if (msg.kind == paxos.RES_PROPOSED) {
@@ -28,7 +29,8 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
 
   var timer    = null;
   var owner    = false; // Tri-state: true, false, 'timeout'.
-  var proposer = paxos.proposer(node_name, node_restarts, acceptors, 0, comm, opts);
+  var proposer = paxos.proposer(node_name, node_restarts,
+                                acceptors, 0, comm, opts);
 
   function acquire(cb) {
     proposer.propose({ "lease_owner"   : node_name,
