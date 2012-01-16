@@ -63,7 +63,6 @@ exports.proposer = function(node_name, node_restarts, slot,
         tot_propose_recv = tot_propose_recv + 1;
 
         if (!timer) {
-          log("paxos.propose - late message: " + res + " from src: " + src);
           return; // Drop/ignore late messages.
         }
 
@@ -100,11 +99,9 @@ exports.proposer = function(node_name, node_restarts, slot,
             }
           } else {
             tot_propose_vote_repeat = tot_propose_vote_repeat + 1;
-            log("paxos.propose - repeat vote: " + res + " from src: " + src);
           }
         } else {
           tot_propose_recv_err = tot_propose_recv_err + 1;
-          log("paxos.propose - bad msg: " + res + " from src: " + src);
         }
 
         tot_propose_phase_loop = tot_propose_phase_loop + 1;
@@ -214,7 +211,6 @@ exports.acceptor = function(storage, comm, opts) {
                 });
             } else {
               tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
-              log("paxos.accept - unknown req.kind: " + req.kind);
               respond(RES_NACK);
             }
           } else {
@@ -234,7 +230,6 @@ exports.acceptor = function(storage, comm, opts) {
       }
     } else {
       tot_accept_bad_req = tot_accept_bad_req + 1;
-      log("paxos.accept - bad req");
     }
   }
 
