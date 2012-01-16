@@ -105,7 +105,7 @@ exports.proposer = function(node_name, node_restarts, slot,
         }
 
         tot_propose_phase_loop = tot_propose_phase_loop + 1;
-        timer_restart();
+        restart_timer();
       }
 
       function restart_timer() {
