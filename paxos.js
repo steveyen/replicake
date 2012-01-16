@@ -65,7 +65,6 @@ exports.proposer = function(node_name, node_restarts, slot,
         if (!timer) {
           return; // Drop/ignore late messages.
         }
-
         if (timer) {
           clearTimeout(timer);
         }
@@ -83,6 +82,7 @@ exports.proposer = function(node_name, node_restarts, slot,
             tally[res.kind] != null) {
           var vkind = tally[res.kind];
           var votes = vkind[0];
+
           if (!is_member(votes, src)) {
             tot_propose_vote = tot_propose_vote + 1;
             votes[votes.length] = src;
@@ -90,7 +90,6 @@ exports.proposer = function(node_name, node_restarts, slot,
               if (opts.on_phase_complete) {
                 opts.on_phase_complete(yea_kind, vkind[2]);
               }
-
               cb_phase(vkind[2],
                        { "highest_proposed_ballot": res.highest_proposed_ballot,
                          "accepted_ballot":         res.accepted_ballot,
@@ -140,8 +139,7 @@ exports.proposer = function(node_name, node_restarts, slot,
              "tot_propose_timeout"     : tot_propose_timeout };
   }
 
-  return { "propose": propose,
-           "stats": stats };
+  return { "propose": propose, "stats": stats };
 };
 
 // ----------------------------------------------------------------
@@ -173,8 +171,6 @@ exports.acceptor = function(storage, comm, opts) {
 
       function on_slot_read(err, slot_state) {
         if (!err) {
-          slot_state = slot_state || {};
-
           var highest_proposed_ballot = slot_state.highest_proposed_ballot;
 
           if (ballot_gte(req.ballot, highest_proposed_ballot)) {
@@ -222,7 +218,7 @@ exports.acceptor = function(storage, comm, opts) {
           }
         } else {
           tot_accept_nack_storage = tot_accept_nack_storage + 1;
-          respond_full(req, RES_NACK);
+          respond_full(req, RES_NACK, {});
         }
       }
     } else {
@@ -231,7 +227,6 @@ exports.acceptor = function(storage, comm, opts) {
   }
 
   function respond_full(req, kind, msg) {
-    msg = msg || {};
     msg.kind = kind;
     msg.slot = req.slot;
     msg.ballot = req.ballot;
@@ -255,8 +250,7 @@ exports.acceptor = function(storage, comm, opts) {
              "tot_accept_nack_behind"  : tot_accept_nack_behind };
   }
 
-  return { "on_msg": on_msg,
-           "stats":  stats };
+  return { "on_msg": on_msg, "stats": stats };
 };
 
 // ----------------------------------------------------------------
@@ -321,4 +315,3 @@ exports.ballot_mk  = ballot_mk;
 exports.ballot_inc = ballot_inc;
 exports.ballot_gte = ballot_gte;
 exports.ballot_eq  = ballot_eq;
-
