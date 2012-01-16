@@ -60,6 +60,7 @@ function create_test() {
       proposer('A', 1, 0, [], null, null);
       assert(false);
     } catch (ex) { assert(ex); }
+    assert(acceptor({}, {}));
   }
   console.log("ok create_test");
 }
@@ -67,7 +68,7 @@ create_test();
 
 // ------------------------------------------------
 
-function log(msg) { console.log("     " + msg); }
+function log(msg) { console.log("   " + msg); }
 
 var to_s = JSON.stringify;
 var blackboard = {};
@@ -94,7 +95,19 @@ function mock_comm(label) {
   return comm;
 }
 
-propose_phase_test();
+var testi = -1; // Current test.
+
+function test_ok(test_name) {
+  console.log("ok " + test_name);
+  testi++;
+  if (testi < tests.length) {
+    tests[testi]();
+  } else {
+    console.log("DONE");
+  }
+}
+
+// ------------------------------------------------
 
 function propose_phase_test() {
   console.log(".. propose_phase_test");
@@ -102,10 +115,10 @@ function propose_phase_test() {
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B'], mock_comm(),
                    { proposer_timeout: 100 });
-  proposer.propose(123, propose_phase_test1);
+  proposer.propose(123, propose_phase_test_cb);
 }
 
-function propose_phase_test1(err, info) {
+function propose_phase_test_cb(err, info) {
   assert(err == 'timeout');
   assert(blackboard.broadcasts.length == 1);
   assert(blackboard.broadcasts[0][0].length == 1);
@@ -115,19 +128,22 @@ function propose_phase_test1(err, info) {
                          paxos.ballot_mk(0, 'A', 1)));
   assert(blackboard.proposer.stats().tot_propose_phase == 1);
 
-  log("propose_phase_test1... done");
-  log("propose_phase_test2...");
+  test_ok("propose_phase_test");
+}
+
+function propose_two_test() {
+  console.log(".. propose_two_test");
 
   // Two propose() calls.
   blackboard.callback_count = 0;
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B'], mock_comm(),
                    { proposer_timeout: 100 });
-  proposer.propose(123, propose_phase_test2);
-  proposer.propose(234, propose_phase_test2);
+  proposer.propose(123, propose_two_test_cb);
+  proposer.propose(234, propose_two_test_cb);
 }
 
-function propose_phase_test2(err, info) {
+function propose_two_test_cb(err, info) {
   // Should be called twice.
   assert(err == 'timeout');
   blackboard.callback_count++;
@@ -149,22 +165,20 @@ function propose_phase_test2(err, info) {
                          paxos.ballot_mk(1, 'A', 1)));
   assert(blackboard.proposer.stats().tot_propose_phase == 2);
 
-  log("propose_phase_test2... done");
-
-  propose_2_acceptors_test();
+  test_ok("propose_two_test");
 }
 
 function propose_2_acceptors_test() {
-  log("propose_2_acceptors_test...");
+  console.log(".. propose_2_acceptors_test");
 
   blackboard.callback_count = 0;
   var proposer = blackboard.proposer =
     paxos.proposer('A', 1, 0, ['B', 'C'], mock_comm(),
                    { proposer_timeout: 100 });
-  proposer.propose(123, propose_2_acceptors_test1);
+  proposer.propose(123, propose_2_acceptors_test_cb);
 }
 
-function propose_2_acceptors_test1(err, info) {
+function propose_2_acceptors_test_cb(err, info) {
   assert(err == 'timeout');
   assert(blackboard.broadcasts.length == 1);
   assert(blackboard.broadcasts[0][0].length == 2);
@@ -176,24 +190,32 @@ function propose_2_acceptors_test1(err, info) {
   assert(blackboard.proposer.stats().tot_propose_phase == 1);
   assert(blackboard.proposer.stats().tot_propose_send == 2);
 
-  log("propose_2_acceptors_test...done");
-
-  console.log("ok propose_phase_test");
-
-  paxos_1_1_test();
+  test_ok("propose_2_acceptors_test");
 }
 
 function paxos_1_1_test() {
   console.log(".. paxos_1_1_test");
 
-  blackboard = {};
+  blackboard = { comm: mock_comm() };
+  var storage = blackboard.storage =
+    { "slot_read": function() {},
+      "slot_save_highest_proposed_ballot": function() {},
+      "slot_save_accepted": function() {}
+    };
+  var acceptor = blackboard.acceptor =
+    paxos.acceptor(storage, blackboard.comm);
+  var proposer = blackboard.proposer =
+    paxos.proposer('A', 1, 0, ['B'], blackboard.comm,
+                   { proposer_timeout: 100 });
+  proposer.propose(123, propose_2_acceptors_test1);
 
-  console.log("ok paxos_1_1_test");
-
-  done();
+  test_ok("ok paxos_1_1_test");
 }
 
-function done() {
-  console.log("DONE.");
-}
+var tests = [ propose_phase_test,
+              propose_two_test,
+              propose_2_acceptors_test,
+             ];
+
+test_ok("...");
 
