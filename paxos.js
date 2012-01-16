@@ -185,8 +185,7 @@ exports.acceptor = function(storage, comm, opts) {
             if (req.kind == REQ_PROPOSE) {
               tot_accept_propose = tot_accept_propose + 1;
               storage.slot_save_highest_proposed_ballot(
-                req.slot,
-                req.ballot,
+                req.slot, req.ballot,
                 function(err) {
                   if (!err) {
                     tot_accept_proposed = tot_accept_proposed + 1;
@@ -200,9 +199,7 @@ exports.acceptor = function(storage, comm, opts) {
             } else if (req.kind == REQ_ACCEPT) {
               tot_accept_accept = tot_accept_accept + 1;
               storage.slot_save_accepted(
-                req.slot,
-                req.ballot,
-                req.val,
+                req.slot, req.ballot, req.val,
                 function(err) {
                   if (!err) {
                     tot_accept_accepted = tot_accept_accepted + 1;
@@ -222,10 +219,7 @@ exports.acceptor = function(storage, comm, opts) {
             }
           } else {
             tot_accept_nack_behind = tot_accept_nack_behind + 1;
-            respond(RES_NACK,
-                    { // Allow requestor to catch up to our accepted value.
-                      "accepted_ballot": accepted_ballot,
-                      "accepted_val":    accepted_val } );
+            respond(RES_NACK);
           }
 
           function respond(kind, msg) {
