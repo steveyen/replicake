@@ -398,7 +398,6 @@ function paxos_1_1_test_cb(err, info) {
   assert(acceptor.stats().tot_accept_nack_behind == 0);
 
   var storage = blackboard.storage;
-  log(to_s(storage.history));
   assert(storage.history[0][0] == "slot_save_highest_proposed_ballot");
   assert(storage.history[0][1] == 0);
   assert(paxos.ballot_eq(storage.history[0][2],
@@ -414,11 +413,129 @@ function paxos_1_1_test_cb(err, info) {
 
 // ------------------------------------------------
 
+function test_gen_paxos(num_proposers, num_acceptors) {
+  blackboard = { "proposers": [],
+                 "acceptors": [],
+                 "storages": [] }
+
+  var comm = blackboard.comm = mock_comm();
+  var acceptor_names = [];
+
+  for (var i = 0; i < num_acceptors; i++) {
+    var storage = blackboard.storages[blackboard.storages.length] =
+      mock_storage();
+    // Acceptors are named 'A', 'B', etc.
+    var acceptor = blackboard.acceptors[blackboard.acceptors.length] =
+      paxos.acceptor(storage, comm);
+    acceptor_names[acceptor_names.length] = String.fromCharCode(65 + i);
+  }
+
+  for (var i = 0; i < num_proposers; i++) {
+    // Proposers are named 'a', 'b', etc.
+    var proposer = blackboard.proposers[blackboard.proposers.length] =
+      paxos.proposer(String.fromCharCode(97 + i), 1,
+                     0, acceptor_names, blackboard.comm,
+                     { proposer_timeout: 100 })
+  }
+}
+
+// ------------------------------------------------
+
+function paxos_1_1_gen_test() {
+  test_start("paxos_1_1_gen_test");
+
+  test_gen_paxos(1, 1);
+
+  var p = blackboard.proposers[0].propose(123, paxos_1_1_gen_test_cb);
+
+  var acceptor = blackboard.acceptors[0];
+
+  assert(blackboard.broadcasts.length == 1);
+  assert(blackboard.sends.length == 1);
+  assert(blackboard.sends[0][0] == 'A');
+  assert(blackboard.sends[0][1].kind == paxos.REQ_PROPOSE);
+
+  acceptor.on_msg('a', blackboard.sends[0][1]);
+
+  assert(blackboard.broadcasts.length == 1);
+  assert(blackboard.sends.length == 2);
+  assert(blackboard.sends[1][0] == 'a');
+  assert(blackboard.sends[1][1].kind == paxos.RES_PROPOSED);
+  assert(paxos.ballot_eq(blackboard.sends[1][1].highest_proposed_ballot,
+                         blackboard.sends[0][1].ballot));
+
+  p.on_msg('A', blackboard.sends[1][1]);
+
+  assert(blackboard.broadcasts.length == 2);
+  assert(blackboard.sends.length == 3);
+  assert(blackboard.sends[2][0] == 'A');
+  assert(blackboard.sends[2][1].slot == 0);
+  assert(blackboard.sends[2][1].kind == paxos.REQ_ACCEPT);
+  assert(blackboard.sends[2][1].val == 123);
+  assert(paxos.ballot_eq(blackboard.sends[2][1].ballot,
+                         blackboard.sends[0][1].ballot));
+
+  acceptor.on_msg('a', blackboard.sends[2][1]);
+
+  assert(blackboard.broadcasts.length == 2);
+  assert(blackboard.sends.length == 4);
+  assert(blackboard.sends[3][0] == 'a');
+  assert(blackboard.sends[3][1].kind == paxos.RES_ACCEPTED);
+  assert(paxos.ballot_eq(blackboard.sends[1][1].highest_proposed_ballot,
+                         blackboard.sends[0][1].ballot));
+
+  p.on_msg('A', blackboard.sends[3][1]);
+}
+
+function paxos_1_1_gen_test_cb(err, info) {
+  assert(!err);
+  assert(paxos.ballot_eq(info.highest_proposed_ballot,
+                         blackboard.sends[0][1].ballot));
+
+  var proposer = blackboard.proposers[0];
+  assert(proposer.stats().tot_propose_phase == 2);
+  assert(proposer.stats().tot_propose_phase_loop == 0);
+  assert(proposer.stats().tot_propose_send == 2);
+  assert(proposer.stats().tot_propose_recv == 2);
+  assert(proposer.stats().tot_propose_recv_err == 0);
+  assert(proposer.stats().tot_propose_vote == 2);
+  assert(proposer.stats().tot_propose_vote_repeat == 0);
+  assert(proposer.stats().tot_propose_timeout == 0);
+
+  var acceptor = blackboard.acceptors[0];
+  assert(acceptor.stats().tot_accept_bad_req == 0);
+  assert(acceptor.stats().tot_accept_bad_req_kind == 0);
+  assert(acceptor.stats().tot_accept_recv == 2);
+  assert(acceptor.stats().tot_accept_send == 2);
+  assert(acceptor.stats().tot_accept_propose == 1);
+  assert(acceptor.stats().tot_accept_proposed == 1);
+  assert(acceptor.stats().tot_accept_accept == 1);
+  assert(acceptor.stats().tot_accept_accepted == 1);
+  assert(acceptor.stats().tot_accept_nack_storage == 0);
+  assert(acceptor.stats().tot_accept_nack_behind == 0);
+
+  var storage = blackboard.storages[0];
+  assert(storage.history[0][0] == "slot_save_highest_proposed_ballot");
+  assert(storage.history[0][1] == 0);
+  assert(paxos.ballot_eq(storage.history[0][2],
+                         info.highest_proposed_ballot));
+  assert(storage.history[1][0] == "slot_save_accepted");
+  assert(storage.history[1][1] == 0);
+  assert(paxos.ballot_eq(storage.history[1][2],
+                         info.highest_proposed_ballot));
+  assert(storage.history[1][3] == 123);
+
+  test_ok("paxos_1_1_gen_test");
+}
+
+// ------------------------------------------------
+
 var tests = [ propose_phase_test,
               propose_two_test,
               propose_2_acceptors_test,
               paxos_1_1_half_test,
               paxos_1_1_test,
+              paxos_1_1_gen_test,
              ];
 
 test_ok("...");
