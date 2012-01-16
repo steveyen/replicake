@@ -79,8 +79,7 @@ exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opt
         //
         if (is_member(acceptors, src) &&
             res != null &&
-            res.req != null &&
-            ballot_eq(res.req.ballot, ballot) &&
+            ballot_eq(res.ballot, ballot) &&
             tally[res.kind] != null) {
           var vkind = tally[res.kind];
           var votes = vkind[0];
@@ -247,8 +246,8 @@ exports.acceptor = function(storage, comm, opts) {
   function respond_full(req, kind, msg) {
     msg = msg || {};
     msg.slot = req.slot;
+    msg.ballot = req.ballot;
     msg.kind = kind;
-    msg.req = req;
     if (opts.respond_preprocess) {
       msg = opts.respond_preproces(msg);
     }
