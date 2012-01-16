@@ -73,20 +73,20 @@ function log(msg) { console.log("   " + msg); }
 var to_s = JSON.stringify;
 var blackboard = {};
 
-function mock_comm(bb) {
+function mock_comm(name, bb) {
   bb = bb || blackboard || {};
   bb.broadcasts = [];
   bb.sends = [];
   var comm = {
     "broadcast": function(acceptors, msg) {
-      log("received: " + acceptors + ", " + JSON.stringify(msg));
       bb.broadcasts[bb.broadcasts.length] = [acceptors, msg];
       for (var i in acceptors) {
         comm.send(acceptors[i], msg);
       }
     },
     "send": function(dst, msg) {
-      bb.sends[bb.sends.length] = [dst, msg];
+      log("comm.heard: " + dst + ", " + JSON.stringify(msg));
+      bb.sends[bb.sends.length] = [dst, msg, name];
     }
   };
   return comm;
@@ -162,7 +162,7 @@ function propose_phase_test() {
   test_start("propose_phase_test");
 
   var proposer = blackboard.proposer =
-    paxos.proposer('A', 1, 0, ['B'], mock_comm(),
+    paxos.proposer('A', 1, 0, ['B'], mock_comm('A'),
                    { proposer_timeout: 100 });
   proposer.propose(123, propose_phase_test_cb);
 }
@@ -186,7 +186,7 @@ function propose_two_test() {
   // Two propose() calls.
   blackboard.callback_count = 0;
   var proposer = blackboard.proposer =
-    paxos.proposer('A', 1, 0, ['B'], mock_comm(),
+    paxos.proposer('A', 1, 0, ['B'], mock_comm('A'),
                    { proposer_timeout: 100 });
   proposer.propose(123, propose_two_test_cb);
   proposer.propose(234, propose_two_test_cb);
@@ -222,7 +222,7 @@ function propose_2_acceptors_test() {
 
   blackboard.callback_count = 0;
   var proposer = blackboard.proposer =
-    paxos.proposer('A', 1, 0, ['B', 'C'], mock_comm(),
+    paxos.proposer('A', 1, 0, ['B', 'C'], mock_comm('A'),
                    { proposer_timeout: 100 });
   proposer.propose(123, propose_2_acceptors_test_cb);
 }
@@ -246,12 +246,11 @@ function paxos_1_1_half_test() {
   test_start("paxos_1_1_half_test");
 
   blackboard = {};
-  var comm = blackboard.comm = mock_comm();
   var storage = blackboard.storage = mock_storage();
   var acceptor = blackboard.acceptor =
-    paxos.acceptor(storage, blackboard.comm);
+    paxos.acceptor(storage, mock_comm('B'));
   var proposer = blackboard.proposer =
-    paxos.proposer('A', 1, 0, ['B'], blackboard.comm,
+    paxos.proposer('A', 1, 0, ['B'], mock_comm('A'),
                    { proposer_timeout: 100 });
 
   proposer.propose(123, paxos_1_1_half_test_cb);
@@ -292,12 +291,11 @@ function paxos_1_1_test() {
   test_start("paxos_1_1_test");
 
   blackboard = {};
-  var comm = blackboard.comm = mock_comm();
   var storage = blackboard.storage = mock_storage();
   var acceptor = blackboard.acceptor =
-    paxos.acceptor(storage, blackboard.comm);
+    paxos.acceptor(storage, mock_comm('B'));
   var proposer = blackboard.proposer =
-    paxos.proposer('A', 1, 0, ['B'], blackboard.comm,
+    paxos.proposer('A', 1, 0, ['B'], mock_comm('A'),
                    { proposer_timeout: 100 });
 
   var p = proposer.propose(123, paxos_1_1_test_cb);
@@ -416,9 +414,8 @@ function paxos_1_1_test_cb(err, info) {
 function test_gen_paxos(num_proposers, num_acceptors) {
   blackboard = { "proposers": [],
                  "acceptors": [],
-                 "storages": [] }
+                 "storages": [] };
 
-  var comm = blackboard.comm = mock_comm();
   var acceptor_names = [];
 
   for (var i = 0; i < num_acceptors; i++) {
@@ -426,16 +423,57 @@ function test_gen_paxos(num_proposers, num_acceptors) {
       mock_storage();
     // Acceptors are named 'A', 'B', etc.
     var acceptor = blackboard.acceptors[blackboard.acceptors.length] =
-      paxos.acceptor(storage, comm);
-    acceptor_names[acceptor_names.length] = String.fromCharCode(65 + i);
+      paxos.acceptor(storage, mock_comm(acceptor_name(i)));
+    acceptor_names[acceptor_names.length] = acceptor_name(i);
   }
 
   for (var i = 0; i < num_proposers; i++) {
     // Proposers are named 'a', 'b', etc.
     var proposer = blackboard.proposers[blackboard.proposers.length] =
-      paxos.proposer(String.fromCharCode(97 + i), 1,
-                     0, acceptor_names, blackboard.comm,
+      paxos.proposer(proposer_name(i), 1,
+                     0, acceptor_names, mock_comm(proposer_name(i)),
                      { proposer_timeout: 100 })
+  }
+}
+
+function proposer_name(idx) { return String.fromCharCode(97 + idx); } // a.
+function acceptor_name(idx) { return String.fromCharCode(65 + idx); } // A.
+
+function name_idx(name) {
+  var idx = name.charCodeAt(0);
+  if (idx >= 97) {
+    idx = idx - 97;
+  } else if (idx >= 65) {
+    idx = idx - 65;
+  }
+  return idx;
+}
+
+function drive_comm(cb) {
+  var proposals = blackboard.proposals = [];
+  for (var i = 0; i < blackboard.proposers.length; i++) {
+    var val = 100 + i;
+    log("proposing: " + val + " to: " + proposer_name(i));
+    proposals[i] =
+      blackboard.proposers[i].propose(100 + i, cb);
+  }
+
+  var i = 0;
+  while (i < blackboard.sends.length) {
+    var dst = blackboard.sends[i][0];
+    var dst_idx = name_idx(dst);
+    var msg = blackboard.sends[i][1];
+    var src = blackboard.sends[i][2];
+    log("comm.txmit: " + i + ", " + dst + ", " + to_s(msg) + ", " + dst_idx);
+
+    if (msg.kind == paxos.REQ_PROPOSE ||
+        msg.kind == paxos.REQ_ACCEPT) {
+      blackboard.acceptors[dst_idx].on_msg(src, msg);
+    } else {
+      proposals[dst_idx].on_msg(src, msg);
+    }
+
+    i++;
   }
 }
 
@@ -528,6 +566,53 @@ function paxos_1_1_gen_test_cb(err, info) {
   test_ok("paxos_1_1_gen_test");
 }
 
+function paxos_1_1_gensend_test() {
+  test_start("paxos_1_1_gensend_test");
+  test_gen_paxos(1, 1);
+  drive_comm(paxos_1_1_gensend_test_cb);
+}
+
+function paxos_1_1_gensend_test_cb(err, info) {
+  assert(!err);
+  assert(paxos.ballot_eq(info.highest_proposed_ballot,
+                         blackboard.sends[0][1].ballot));
+
+  var proposer = blackboard.proposers[0];
+  assert(proposer.stats().tot_propose_phase == 2);
+  assert(proposer.stats().tot_propose_phase_loop == 0);
+  assert(proposer.stats().tot_propose_send == 2);
+  assert(proposer.stats().tot_propose_recv == 2);
+  assert(proposer.stats().tot_propose_recv_err == 0);
+  assert(proposer.stats().tot_propose_vote == 2);
+  assert(proposer.stats().tot_propose_vote_repeat == 0);
+  assert(proposer.stats().tot_propose_timeout == 0);
+
+  var acceptor = blackboard.acceptors[0];
+  assert(acceptor.stats().tot_accept_bad_req == 0);
+  assert(acceptor.stats().tot_accept_bad_req_kind == 0);
+  assert(acceptor.stats().tot_accept_recv == 2);
+  assert(acceptor.stats().tot_accept_send == 2);
+  assert(acceptor.stats().tot_accept_propose == 1);
+  assert(acceptor.stats().tot_accept_proposed == 1);
+  assert(acceptor.stats().tot_accept_accept == 1);
+  assert(acceptor.stats().tot_accept_accepted == 1);
+  assert(acceptor.stats().tot_accept_nack_storage == 0);
+  assert(acceptor.stats().tot_accept_nack_behind == 0);
+
+  var storage = blackboard.storages[0];
+  assert(storage.history[0][0] == "slot_save_highest_proposed_ballot");
+  assert(storage.history[0][1] == 0);
+  assert(paxos.ballot_eq(storage.history[0][2],
+                         info.highest_proposed_ballot));
+  assert(storage.history[1][0] == "slot_save_accepted");
+  assert(storage.history[1][1] == 0);
+  assert(paxos.ballot_eq(storage.history[1][2],
+                         info.highest_proposed_ballot));
+  assert(storage.history[1][3] == 100);
+
+  test_ok("paxos_1_1_gensend_test");
+}
+
 // ------------------------------------------------
 
 var tests = [ propose_phase_test,
@@ -536,6 +621,7 @@ var tests = [ propose_phase_test,
               paxos_1_1_half_test,
               paxos_1_1_test,
               paxos_1_1_gen_test,
+              paxos_1_1_gensend_test,
              ];
 
 test_ok("...");
