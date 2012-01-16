@@ -6,7 +6,8 @@ var RES_PROPOSED = exports.RES_PROPOSED = 11;
 var REQ_ACCEPT   = exports.REQ_ACCEPT   = 20;
 var RES_ACCEPTED = exports.RES_ACCEPTED = 21;
 
-exports.proposer = function(node_name, node_restarts, slot, acceptors, comm, opts) {
+exports.proposer = function(node_name, node_restarts, slot,
+                            acceptors, comm, opts) {
   assert(node_name != null);
   assert(node_restarts > 0);
   assert(acceptors.length > 0);
@@ -190,10 +191,10 @@ exports.acceptor = function(storage, comm, opts) {
                   if (!err) {
                     tot_accept_proposed = tot_accept_proposed + 1;
                     highest_proposed_ballot = req.ballot;
-                    respond(req, RES_PROPOSED);
+                    respond(RES_PROPOSED);
                   } else {
                     tot_accept_nack_storage = tot_accept_nack_storage + 1;
-                    respond(req, RES_NACK);
+                    respond(RES_NACK);
                   }
                 });
             } else if (req.kind == REQ_ACCEPT) {
@@ -208,26 +209,26 @@ exports.acceptor = function(storage, comm, opts) {
                     highest_proposed_ballot = req.ballot;
                     accepted_ballot = req.ballot;
                     accepted_val = req.val;
-                    respond(req, RES_ACCEPTED);
+                    respond(RES_ACCEPTED);
                   } else {
                     tot_accept_nack_storage = tot_accept_nack_storage + 1;
-                    respond(req, RES_NACK);
+                    respond(RES_NACK);
                   }
                 });
             } else {
               tot_accept_bad_req_kind = tot_accept_bad_req_kind + 1;
               log("paxos.accept - unknown req.kind: " + req.kind);
-              respond(req, RES_NACK);
+              respond(RES_NACK);
             }
           } else {
             tot_accept_nack_behind = tot_accept_nack_behind + 1;
-            respond(req, RES_NACK,
+            respond(RES_NACK,
                     { // Allow requestor to catch up to our accepted value.
                       "accepted_ballot": accepted_ballot,
                       "accepted_val":    accepted_val } );
           }
 
-          function respond(req, kind, msg) {
+          function respond(kind, msg) {
             msg = msg || {};
             msg.highest_proposed_ballot = highest_proposed_ballot;
             respond_full(req, kind, msg);
@@ -245,9 +246,9 @@ exports.acceptor = function(storage, comm, opts) {
 
   function respond_full(req, kind, msg) {
     msg = msg || {};
+    msg.kind = kind;
     msg.slot = req.slot;
     msg.ballot = req.ballot;
-    msg.kind = kind;
     if (opts.respond_preprocess) {
       msg = opts.respond_preproces(msg);
     }
