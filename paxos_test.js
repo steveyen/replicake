@@ -453,15 +453,20 @@ function name_idx(name) {
 function drive_comm(cb, label) {
   label = label || "";
   var proposers = blackboard.proposers;
-  var acceptors = blackboard.acceptors;
-  var sends = blackboard.sends;
-
   var proposals = blackboard.proposals = [];
   for (var i = 0; i < proposers.length; i++) {
     var val = 100 + i;
     log(label + "proposing: " + val + " to: " + proposer_name(i));
     proposals[i] = proposers[i].propose(val, cb);
   }
+  drive_comm_proposals(proposals, label);
+}
+
+function drive_comm_proposals(proposals, label) {
+  label = label || "";
+  var proposers = blackboard.proposers;
+  var acceptors = blackboard.acceptors;
+  var sends = blackboard.sends;
 
   var i = 0;
   while (blackboard != null &&
@@ -723,6 +728,50 @@ function paxos_1_3_gensend_test_cb(err, info) {
   test_ok("paxos_1_3_gensend_test");
 }
 
+function paxos_2_3_gensend_test() {
+  test_start("paxos_2_3_gensend_test");
+  test_gen_paxos(2, 3);
+  var proposers = blackboard.proposers;
+  drive_comm_proposals([ proposers[0].propose(100, expect_rejected),
+                         proposers[1].propose(101, paxos_2_3_gensend_test_cb)
+                         ]);
+}
+
+function expect_rejected(err, info) {
+  log('expect_rejected: ' + err + ", " + to_s(info));
+  assert(err == 'rejected');
+}
+
+function paxos_2_3_gensend_test_cb(err, info) {
+  assert(!err);
+
+  var proposer = blackboard.proposers[blackboard.proposers.length - 1];
+  assert(proposer.stats().tot_propose_phase == 2);
+  assert(proposer.stats().tot_propose_phase_loop == 3);
+  assert(proposer.stats().tot_propose_send == 6);
+  assert(proposer.stats().tot_propose_recv == 5);
+  assert(proposer.stats().tot_propose_recv_err == 1);
+  assert(proposer.stats().tot_propose_vote == 4);
+  assert(proposer.stats().tot_propose_vote_repeat == 0);
+  assert(proposer.stats().tot_propose_timeout == 0);
+
+  for (var i in blackboard.acceptors) {
+    var acceptor = blackboard.acceptors[i];
+    assert(acceptor.stats().tot_accept_bad_req == 0);
+    assert(acceptor.stats().tot_accept_bad_req_kind == 0);
+    assert(acceptor.stats().tot_accept_recv == 4);
+    assert(acceptor.stats().tot_accept_send == 4);
+    assert(acceptor.stats().tot_accept_propose == 2);
+    assert(acceptor.stats().tot_accept_proposed == 2);
+    assert(acceptor.stats().tot_accept_accept == 1);
+    assert(acceptor.stats().tot_accept_accepted == 1);
+    assert(acceptor.stats().tot_accept_nack_storage == 0);
+    assert(acceptor.stats().tot_accept_nack_behind == 1);
+  }
+
+  test_ok("paxos_2_3_gensend_test");
+}
+
 // ------------------------------------------------
 
 var tests = [ propose_phase_test,
@@ -734,6 +783,7 @@ var tests = [ propose_phase_test,
               paxos_1_1_gensend_test,
               paxos_1_2_gensend_test,
               paxos_1_3_gensend_test,
+              paxos_2_3_gensend_test,
              ];
 
 test_ok("...");
