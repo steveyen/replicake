@@ -96,7 +96,7 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
 
     on_transition(roster_member_state, 'start',    'opening', open_roster_member);
     on_transition(roster_member_state, 'creating', 'opening', open_roster_member);
-    
+
     function open_roster_member() {
       storage.open(roster_id,
                    function(err, in_data) {
