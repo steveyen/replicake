@@ -93,14 +93,13 @@ function mock_comm(name, bb) {
 }
 
 function mock_storage() {
-  var slots = {};
-
   function get(slot) {
-    slots[slot] = slots[slot] || {};
-    return slots[slot];
+    storage.slots[slot] = storage.slots[slot] || {};
+    return storage.slots[slot];
   }
 
   var storage = {
+    "slots": {},
     "history": [],
     "slot_read": function(slot, cb) {
       var slot = get(slot);
@@ -490,6 +489,11 @@ function drive_comm_proposals(proposals, label) {
   }
 }
 
+function expect_rejected(err, info) {
+  log('expect_rejected: ' + err + ", " + to_s(info));
+  assert(err == 'rejected');
+}
+
 // ------------------------------------------------
 
 function paxos_1_1_gen_test() {
@@ -737,11 +741,6 @@ function paxos_2_3_gensend_test() {
                          ]);
 }
 
-function expect_rejected(err, info) {
-  log('expect_rejected: ' + err + ", " + to_s(info));
-  assert(err == 'rejected');
-}
-
 function paxos_2_3_gensend_test_cb(err, info) {
   assert(!err);
 
@@ -767,6 +766,11 @@ function paxos_2_3_gensend_test_cb(err, info) {
     assert(acceptor.stats().tot_accept_accepted == 1);
     assert(acceptor.stats().tot_accept_nack_storage == 0);
     assert(acceptor.stats().tot_accept_nack_behind == 1);
+  }
+
+  for (var i in blackboard.storages) {
+    var storage = blackboard.storages[i];
+    assert(storage.slots[0].accepted_val == 101);
   }
 
   test_ok("paxos_2_3_gensend_test");
