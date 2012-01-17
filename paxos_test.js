@@ -449,26 +449,31 @@ function name_idx(name) {
   return idx;
 }
 
-function drive_comm(cb) {
+function drive_comm(cb, label) {
+  label = label || "";
+  var proposers = blackboard.proposers;
+  var acceptors = blackboard.acceptors;
+  var sends = blackboard.sends;
+
   var proposals = blackboard.proposals = [];
-  for (var i = 0; i < blackboard.proposers.length; i++) {
+  for (var i = 0; i < proposers.length; i++) {
     var val = 100 + i;
-    log("proposing: " + val + " to: " + proposer_name(i));
-    proposals[i] =
-      blackboard.proposers[i].propose(100 + i, cb);
+    log(label + "proposing: " + val + " to: " + proposer_name(i));
+    proposals[i] = proposers[i].propose(val, cb);
   }
 
   var i = 0;
-  while (i < blackboard.sends.length) {
-    var dst = blackboard.sends[i][0];
+  while (i < sends.length) {
+    var dst = sends[i][0];
     var dst_idx = name_idx(dst);
-    var msg = blackboard.sends[i][1];
-    var src = blackboard.sends[i][2];
-    log("comm.txmit: " + i + ", " + dst + ", " + to_s(msg) + ", " + dst_idx);
+    var msg = sends[i][1];
+    var src = sends[i][2];
+    log(label + "comm.txmit: " + i + ", " +
+        dst + ", " + to_s(msg) + ", " + dst_idx);
 
     if (msg.kind == paxos.REQ_PROPOSE ||
         msg.kind == paxos.REQ_ACCEPT) {
-      blackboard.acceptors[dst_idx].on_msg(src, msg);
+      acceptors[dst_idx].on_msg(src, msg);
     } else {
       proposals[dst_idx].on_msg(src, msg);
     }
