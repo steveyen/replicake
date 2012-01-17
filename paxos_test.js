@@ -148,6 +148,7 @@ function test_start(test_name) {
 
 function test_ok(test_name) {
   console.log("ok " + test_name);
+  blackboard = {};
   testi++;
   if (testi < tests.length) {
     tests[testi]();
@@ -463,7 +464,9 @@ function drive_comm(cb, label) {
   }
 
   var i = 0;
-  while (i < sends.length) {
+  while (blackboard != null &&
+         blackboard.sends === sends &&
+         i < sends.length) {
     var dst = sends[i][0];
     var dst_idx = name_idx(dst);
     var msg = sends[i][1];
