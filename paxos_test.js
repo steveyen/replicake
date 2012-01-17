@@ -613,6 +613,57 @@ function paxos_1_1_gensend_test_cb(err, info) {
   test_ok("paxos_1_1_gensend_test");
 }
 
+function paxos_1_2_gensend_test() {
+  test_start("paxos_1_2_gensend_test");
+  test_gen_paxos(1, 2);
+  drive_comm(paxos_1_2_gensend_test_cb);
+}
+
+function paxos_1_2_gensend_test_cb(err, info) {
+  assert(!err);
+  assert(paxos.ballot_eq(info.highest_proposed_ballot,
+                         blackboard.sends[0][1].ballot));
+
+  var proposer = blackboard.proposers[0];
+  assert(proposer.stats().tot_propose_phase == 2);
+  assert(proposer.stats().tot_propose_phase_loop == 2);
+  assert(proposer.stats().tot_propose_send == 4);
+  assert(proposer.stats().tot_propose_recv == 4);
+  assert(proposer.stats().tot_propose_recv_err == 0);
+  assert(proposer.stats().tot_propose_vote == 4);
+  assert(proposer.stats().tot_propose_vote_repeat == 0);
+  assert(proposer.stats().tot_propose_timeout == 0);
+
+  for (var i in blackboard.acceptors) {
+    var acceptor = blackboard.acceptors[i];
+    assert(acceptor.stats().tot_accept_bad_req == 0);
+    assert(acceptor.stats().tot_accept_bad_req_kind == 0);
+    assert(acceptor.stats().tot_accept_recv == 2);
+    assert(acceptor.stats().tot_accept_send == 2);
+    assert(acceptor.stats().tot_accept_propose == 1);
+    assert(acceptor.stats().tot_accept_proposed == 1);
+    assert(acceptor.stats().tot_accept_accept == 1);
+    assert(acceptor.stats().tot_accept_accepted == 1);
+    assert(acceptor.stats().tot_accept_nack_storage == 0);
+    assert(acceptor.stats().tot_accept_nack_behind == 0);
+  }
+
+  for (var i in blackboard.storages) {
+    var storage = blackboard.storages[i];
+    assert(storage.history[0][0] == "slot_save_highest_proposed_ballot");
+    assert(storage.history[0][1] == 0);
+    assert(paxos.ballot_eq(storage.history[0][2],
+                           info.highest_proposed_ballot));
+    assert(storage.history[1][0] == "slot_save_accepted");
+    assert(storage.history[1][1] == 0);
+    assert(paxos.ballot_eq(storage.history[1][2],
+                           info.highest_proposed_ballot));
+    assert(storage.history[1][3] == 100);
+  }
+
+  test_ok("paxos_1_2_gensend_test");
+}
+
 // ------------------------------------------------
 
 var tests = [ propose_phase_test,
@@ -622,6 +673,7 @@ var tests = [ propose_phase_test,
               paxos_1_1_test,
               paxos_1_1_gen_test,
               paxos_1_1_gensend_test,
+              paxos_1_2_gensend_test,
              ];
 
 test_ok("...");
