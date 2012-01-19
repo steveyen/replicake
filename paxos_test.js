@@ -781,6 +781,9 @@ function paxos_2_3_gensend_test_cb(err, info) {
 function paxos_simple_reorderings_test() {
   test_start("paxos_simple_reorderings_test");
 
+  // Test paxos will some simple message reorderings.
+  // By simple, there are no dropped messages and no re-proposals.
+  //
   var max_proposers = 1;
   var max_acceptors = 1;
 
