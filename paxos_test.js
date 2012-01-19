@@ -785,7 +785,7 @@ function paxos_simple_reorderings_test() {
   // By simple, there are no dropped messages and no re-proposals.
   //
   var max_proposers = 1;
-  var max_acceptors = 1;
+  var max_acceptors = 3;
 
   for (var i = 1; i <= max_proposers; i++) {
     for (var j = 1; j <= max_acceptors; j++) {
@@ -822,6 +822,7 @@ function paxos_simple_reorderings_test_topology(num_proposers,
     if (remaining_next < remaining.length) {
       replayed_sends = remaining[remaining_next][0];
       for (var i = 0; i < replayed_sends.length; i++) {
+        assert(replayed_sends[i]);
         transmit(replayed_sends[i]);
       }
       sends = blackboard.sends = remaining[remaining_next][1];
@@ -832,16 +833,17 @@ function paxos_simple_reorderings_test_topology(num_proposers,
            blackboard.sends === sends &&
            sends.length > 0) {
       var next_to_send = sends[0];
-      for (var j = 1; j < sends.length; j++) {
+      assert(next_to_send);
+
+      blackboard.sends = sends = sends.slice(1);
+      for (var j = 0; j < sends.length; j++) {
         var replay_next_time = clone(replayed_sends);
-        replay_next_time[replay_next_time.length] = sends[i];
+        replay_next_time[replay_next_time.length] = next_to_send;
         remaining[remaining.length] = [replay_next_time,
-                                       clone(sends, [], 1, j)];
+                                       clone(sends, [], 0, j)];
       }
 
       transmit(next_to_send);
-
-      blackboard.sends = sends = sends.slice(1);
     }
 
     if (remaining_next >= remaining.length) {
