@@ -778,6 +778,107 @@ function paxos_2_3_gensend_test_cb(err, info) {
 
 // ------------------------------------------------
 
+function paxos_simple_reorderings_test() {
+  test_start("paxos_simple_reorderings_test");
+
+  var max_proposers = 1;
+  var max_acceptors = 1;
+
+  for (var i = 1; i <= max_proposers; i++) {
+    for (var j = 1; j <= max_acceptors; j++) {
+      log("test " + i + " proposers, " + j + " acceptors");
+      paxos_simple_reorderings_test_topology(i, j);
+    }
+  }
+
+  test_ok("paxos_simple_reorderings_test");
+}
+
+function paxos_simple_reorderings_test_topology(num_proposers,
+                                                num_acceptors) {
+  var remaining = [];
+  var remaining_next = 0;
+
+  var n = 0;
+  while (true) {
+    log("loop... " + n);
+    test_gen_paxos(num_proposers, num_acceptors);
+
+    var sends     = blackboard.sends;
+    var acceptors = blackboard.acceptors;
+    var proposers = blackboard.proposers;
+    var proposals = blackboard.proposals = [];
+
+    for (var i = 0; i < proposers.length; i++) {
+      var val = 100 + i;
+      proposals[i] = proposers[i].propose(val, callback);
+    }
+
+    var replayed_sends = [];
+
+    if (remaining_next < remaining.length) {
+      replayed_sends = remaining[remaining_next][0];
+      for (var i = 0; i < replayed_sends.length; i++) {
+        transmit(replayed_sends[i]);
+      }
+      sends = blackboard.sends = remaining[remaining_next][1];
+      remaining_next++;
+    }
+
+    while (blackboard != null &&
+           blackboard.sends === sends &&
+           sends.length > 0) {
+      var next_to_send = sends[0];
+      for (var j = 1; j < sends.length; j++) {
+        var replay_next_time = clone(replayed_sends);
+        replay_next_time[replay_next_time.length] = sends[i];
+        remaining[remaining.length] = [replay_next_time,
+                                       clone(sends, [], 1, j)];
+      }
+
+      transmit(next_to_send);
+
+      blackboard.sends = sends = sends.slice(1);
+    }
+
+    if (remaining_next >= remaining.length) {
+      break;
+    }
+    n++;
+  }
+
+  function clone(src, dst, start, skip) {
+    dst = dst || [];
+    start = start || 0;
+    for (var i = start; i < src.length; i++) {
+      if (skip == null ||
+          skip != i) {
+        dst[dst.length] = src[i];
+      }
+    }
+    return dst;
+  }
+
+  function transmit(to_send) {
+    var dst = to_send[0];
+    var dst_idx = name_idx(dst);
+    var msg = to_send[1];
+    var src = to_send[2];
+    if (msg.kind == paxos.REQ_PROPOSE ||
+        msg.kind == paxos.REQ_ACCEPT) {
+      acceptors[dst_idx].on_msg(src, msg);
+    } else {
+      proposals[dst_idx].on_msg(src, msg);
+    }
+  }
+
+  function callback(err, info) {
+    log(err + ', ' + info);
+  }
+}
+
+// ------------------------------------------------
+
 var tests = [ propose_phase_test,
               propose_two_test,
               propose_2_acceptors_test,
@@ -788,7 +889,8 @@ var tests = [ propose_phase_test,
               paxos_1_2_gensend_test,
               paxos_1_3_gensend_test,
               paxos_2_3_gensend_test,
-             ];
+              paxos_simple_reorderings_test,
+            ];
 
 test_ok("...");
 
