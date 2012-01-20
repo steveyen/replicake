@@ -85,7 +85,7 @@ function mock_comm(name, bb) {
       }
     },
     "send": function(dst, msg) {
-      log("comm.heard: " + dst + ", " + JSON.stringify(msg));
+      log("comm.heard: " + name + "->" + dst + ", " + JSON.stringify(msg));
       bb.sends[bb.sends.length] = [dst, msg, name];
     }
   };
@@ -787,10 +787,12 @@ function paxos_simple_reorderings_test() {
   var max_proposers = 1;
   var max_acceptors = 3;
 
-  for (var i = 1; i <= max_proposers; i++) {
-    for (var j = 1; j <= max_acceptors; j++) {
-      log("test " + i + " proposers, " + j + " acceptors");
-      paxos_simple_reorderings_test_topology(i, j);
+  if (true) {
+    for (var i = 1; i <= max_proposers; i++) {
+      for (var j = 1; j <= max_acceptors; j++) {
+        log("test " + i + " proposers, " + j + " acceptors");
+        paxos_simple_reorderings_test_topology(i, j);
+      }
     }
   }
 
@@ -799,56 +801,114 @@ function paxos_simple_reorderings_test() {
 
 function paxos_simple_reorderings_test_topology(num_proposers,
                                                 num_acceptors) {
-  var remaining = [];
-  var remaining_next = 0;
+  var unvisited = [];
+  var unvisited_next = 0;
 
   var n = 0;
   while (true) {
-    log("loop... " + n);
-    test_gen_paxos(num_proposers, num_acceptors);
+    (function(n) {
+      log("loop... " + n + ", " + num_proposers + ", " + num_acceptors);
+      test_gen_paxos(num_proposers, num_acceptors);
 
-    var sends     = blackboard.sends;
-    var acceptors = blackboard.acceptors;
-    var proposers = blackboard.proposers;
-    var proposals = blackboard.proposals = [];
+      var num_callbacks = 0;
+      var num_callback_oks = 0;
+      var num_callback_errs = 0;
+      var num_callback_timeouts = 0;
 
-    for (var i = 0; i < proposers.length; i++) {
-      var val = 100 + i;
-      proposals[i] = proposers[i].propose(val, callback);
-    }
+      var sends     = blackboard.sends;
+      var acceptors = blackboard.acceptors;
+      var proposers = blackboard.proposers;
+      var proposals = blackboard.proposals = [];
 
-    var replayed_sends = [];
+      assert(sends.length == 0);
+      assert(acceptors.length == num_acceptors);
+      assert(proposers.length == num_proposers);
 
-    if (remaining_next < remaining.length) {
-      replayed_sends = remaining[remaining_next][0];
-      for (var i = 0; i < replayed_sends.length; i++) {
-        assert(replayed_sends[i]);
-        transmit(replayed_sends[i]);
-      }
-      sends = blackboard.sends = remaining[remaining_next][1];
-      remaining_next++;
-    }
-
-    while (blackboard != null &&
-           blackboard.sends === sends &&
-           sends.length > 0) {
-      var next_to_send = sends[0];
-      assert(next_to_send);
-
-      blackboard.sends = sends = sends.slice(1);
-      for (var j = 0; j < sends.length; j++) {
-        var replay_next_time = clone(replayed_sends);
-        replay_next_time[replay_next_time.length] = next_to_send;
-        remaining[remaining.length] = [replay_next_time,
-                                       clone(sends, [], 0, j)];
+      for (var i = 0; i < proposers.length; i++) {
+        var val = 100 + i;
+        proposals[i] = proposers[i].propose(val, mk_callback(i));
       }
 
-      transmit(next_to_send);
-    }
+      var replayed_sends = [];
 
-    if (remaining_next >= remaining.length) {
+      if (unvisited_next < unvisited.length) {
+        log(n + "-replaying: " + unvisited_next);
+        replayed_sends = unvisited[unvisited_next][0];
+        for (var i = 0; i < replayed_sends.length; i++) {
+          assert(replayed_sends[i]);
+          if (i == replayed_sends.length - 1) {
+            sends = blackboard.sends = unvisited[unvisited_next][1];
+          }
+          transmit(replayed_sends[i]);
+        }
+        log(n + "-replaying: " + unvisited_next + " done");
+        unvisited_next++;
+      }
+
+      while (blackboard != null &&
+             blackboard.sends === sends &&
+             sends.length > 0) {
+        var next_to_send = sends[0];
+        assert(next_to_send);
+
+        for (var j = 1; j < sends.length; j++) {
+          var replay_next_time = clone(replayed_sends);
+          replay_next_time[replay_next_time.length] = sends[j];
+          unvisited[unvisited.length] = [replay_next_time,
+                                         clone(sends, [], 0, j)];
+        }
+
+        replayed_sends[replayed_sends.length] = next_to_send;
+        blackboard.sends = sends = sends.slice(1);
+        transmit(next_to_send);
+      }
+
+      function transmit(to_send) {
+        var dst = to_send[0];
+        var dst_idx = name_idx(dst);
+        var msg = to_send[1];
+        var src = to_send[2];
+
+        log(n + "-xmit: " + src + "->" + dst + ", " + to_s(msg));
+
+        if (msg.kind == paxos.REQ_PROPOSE ||
+            msg.kind == paxos.REQ_ACCEPT) {
+          acceptors[dst_idx].on_msg(src, msg);
+        } else {
+          proposals[dst_idx].on_msg(src, msg);
+        }
+      }
+
+      function mk_callback(label) {
+        return function(err, info) {
+          num_callbacks++;
+          assert(num_callbacks <= num_proposers);
+
+          if (!err) {
+            num_callback_oks++;
+          } else {
+            num_callback_errs++;
+            if (err == 'timeout') {
+              num_callback_timeouts++;
+            }
+          }
+
+          log(n + "-callback: " + label + ", " + err + ", " + to_s(info));
+
+          assert(num_callback_oks <= 1);
+        }
+      }
+    })(n);
+
+    if (unvisited_next >= unvisited.length) {
       break;
     }
+
+    if (unvisited_next >= 1000) {
+      unvisited = unvisited.splice(1000);
+      unvisited_next = 0;
+    }
+
     n++;
   }
 
@@ -862,23 +922,6 @@ function paxos_simple_reorderings_test_topology(num_proposers,
       }
     }
     return dst;
-  }
-
-  function transmit(to_send) {
-    var dst = to_send[0];
-    var dst_idx = name_idx(dst);
-    var msg = to_send[1];
-    var src = to_send[2];
-    if (msg.kind == paxos.REQ_PROPOSE ||
-        msg.kind == paxos.REQ_ACCEPT) {
-      acceptors[dst_idx].on_msg(src, msg);
-    } else {
-      proposals[dst_idx].on_msg(src, msg);
-    }
-  }
-
-  function callback(err, info) {
-    log(err + ', ' + info);
   }
 }
 
