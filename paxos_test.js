@@ -805,6 +805,7 @@ function paxos_simple_reorderings_test_topology(num_proposers,
                                                 num_acceptors) {
   var unvisited = [];
   var unvisited_next = 0;
+  var unvisited_seen = {};
 
   var n = 0;
   while (true) {
@@ -858,8 +859,13 @@ function paxos_simple_reorderings_test_topology(num_proposers,
         for (var j = 1; j < sends.length; j++) {
           var replay_next_time = clone(replayed_sends);
           replay_next_time[replay_next_time.length] = sends[j];
-          unvisited[unvisited.length] = [replay_next_time,
-                                         clone(sends, [], 0, j)];
+          var unvisited_next_time = [replay_next_time,
+                                     clone(sends, [], 0, j)];
+          var unvisited_next_time_s = JSON.stringify(unvisited_next_time);
+          assert(!unvisited_seen[unvisited_next_time_s]);
+          log(unvisited_next_time_s);
+          unvisited_seen[unvisited_next_time_s] = true;
+          unvisited[unvisited.length] = unvisited_next_time;
         }
 
         replayed_sends[replayed_sends.length] = next_to_send;
@@ -917,19 +923,56 @@ function paxos_simple_reorderings_test_topology(num_proposers,
 
     n++;
   }
+}
 
-  function clone(src, dst, start, skip) {
-    dst = dst || [];
-    start = start || 0;
-    for (var i = start; i < src.length; i++) {
-      if (skip == null ||
-          skip != i) {
-        dst[dst.length] = src[i];
+// ------------------------------------------------
+
+function clone(src, dst, start, skip) {
+  dst = dst || [];
+  start = start || 0;
+  for (var i = start; i < src.length; i++) {
+    if (skip == null ||
+        skip != i) {
+      dst[dst.length] = src[i];
+    }
+  }
+  return dst;
+}
+
+function mix(abc, xyz, prefix) {
+  prefix = prefix || '';
+  var rv = [];
+  if (abc.length > 0) {
+    for (var j = 0; j < xyz.length; j++) {
+      var chosen = [abc[0], xyz[j]];
+      var rest = mix(abc.slice(1),
+                     clone(xyz, [], 0, j),
+                     prefix + ' ');
+      log(prefix + 'c ' + to_s(chosen));
+      log(prefix + 'r ' + to_s(rest));
+      if (rest.length > 0) {
+        for (var k = 0; k < rest.length; k++) {
+          rv.push([chosen].concat(rest[k]));
+        }
+      } else {
+        rv.push([chosen]);
       }
     }
-    return dst;
   }
+  return rv;
 }
+
+assert(to_s(mix(['A'], ['X'])) == '[[["A","X"]]]');
+assert(to_s(mix(['A', 'B'], ['X', 'Y'])) ==
+       '[[["A","X"],["B","Y"]],' +
+        '[["A","Y"],["B","X"]]]');
+assert(to_s(mix(['A', 'B', 'C'], ['X', 'Y', 'Z'])) ==
+       '[[["A","X"],["B","Y"],["C","Z"]],' +
+        '[["A","X"],["B","Z"],["C","Y"]],' +
+        '[["A","Y"],["B","X"],["C","Z"]],' +
+        '[["A","Y"],["B","Z"],["C","X"]],' +
+        '[["A","Z"],["B","X"],["C","Y"]],' +
+        '[["A","Z"],["B","Y"],["C","X"]]]');
 
 // ------------------------------------------------
 
