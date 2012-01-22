@@ -822,6 +822,8 @@ function paxos_simple_reorderings_test_topology(num_proposers,
       var proposers = blackboard.proposers;
       var proposals = blackboard.proposals = [];
 
+      var accepted_val = null;
+
       assert(sends.length == 0);
       assert(acceptors.length == num_acceptors);
       assert(proposers.length == num_proposers);
@@ -883,21 +885,23 @@ function paxos_simple_reorderings_test_topology(num_proposers,
 
       function mk_callback(label) {
         return function(err, info) {
+          log(n + "-callback: " + label + ", " + err + ", " + to_s(info));
+
           num_callbacks++;
           assert(num_callbacks <= num_proposers);
 
           if (!err) {
             num_callback_oks++;
+
+            assert(!accepted_val ||
+                   (accepted_val == info.accepted_val));
+            accepted_val = info.accepted_val;
           } else {
             num_callback_errs++;
             if (err == 'timeout') {
               num_callback_timeouts++;
             }
           }
-
-          log(n + "-callback: " + label + ", " + err + ", " + to_s(info));
-
-          assert(num_callback_oks <= 1);
         }
       }
     })(n);

@@ -30,6 +30,9 @@ exports.proposer = function(node_name, node_restarts, slot,
     var timer = null;
     var ballot = next_ballot();
 
+    var accepted_ballot = BOTTOM_BALLOT;
+    var accepted_val    = null;
+
     // Run through two similar, sequential phases: propose & accept.
     //
     phase(REQ_PROPOSE, RES_PROPOSED, {},
@@ -37,6 +40,10 @@ exports.proposer = function(node_name, node_restarts, slot,
             if (err) {
               cb(err, info);
             } else {
+              if (info.accepted_ballot &&
+                  info.accepted_val) {
+                val = info.accepted_val;
+              }
               phase(REQ_ACCEPT, RES_ACCEPTED, { "val": val }, cb);
             }
           });
@@ -85,6 +92,12 @@ exports.proposer = function(node_name, node_restarts, slot,
 
           if (!is_member(votes, src)) {
             tot_propose_vote = tot_propose_vote + 1;
+
+            if (ballot_gte(res.accepted_ballot, accepted_ballot)) {
+              accepted_ballot = res.accepted_ballot;
+              accepted_val    = res.accepted_val;
+            }
+
             votes[votes.length] = src;
             if (votes.length >= vkind[1]) {
               if (opts.on_phase_complete) {
@@ -92,8 +105,8 @@ exports.proposer = function(node_name, node_restarts, slot,
               }
               cb_phase(vkind[2],
                        { "highest_proposed_ballot": res.highest_proposed_ballot,
-                         "accepted_ballot":         res.accepted_ballot,
-                         "accepted_val":            res.accepted_val });
+                         "accepted_ballot":         accepted_ballot,
+                         "accepted_val":            accepted_val || val });
               return;
             }
           } else {
@@ -182,7 +195,9 @@ exports.acceptor = function(storage, comm, opts) {
                   if (!err) {
                     tot_accept_proposed = tot_accept_proposed + 1;
                     highest_proposed_ballot = req.ballot;
-                    respond(RES_PROPOSED);
+                    respond(RES_PROPOSED,
+                            { "accepted_ballot": slot_state.accepted_ballot,
+                              "accepted_val":    slot_state.accepted_val });
                   } else {
                     tot_accept_nack_storage = tot_accept_nack_storage + 1;
                     respond(RES_NACK);
