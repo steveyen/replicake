@@ -439,7 +439,10 @@ function test_gen_paxos(num_proposers, num_acceptors, quiet) {
 }
 
 function proposer_name(idx) { return String.fromCharCode(97 + idx); } // a.
-function acceptor_name(idx) { return String.fromCharCode(65 + idx); } // A.
+function acceptor_name(idx, base) {
+  base = base || 'A';
+  return String.fromCharCode(base.charCodeAt(0) + idx);
+}
 
 function name_idx(name) {
   var idx = name.charCodeAt(0);
@@ -807,6 +810,12 @@ function paxos_simple_reorderings_test_topology(num_proposers,
   var unvisited_next = 0;
   var unvisited_seen = {};
 
+  var acceptor_names = [];
+  for (var i = 0; i < num_acceptors; i++) {
+    acceptor_names.push(acceptor_name(i));
+  }
+  log(to_s(acceptor_names));
+
   var n = 0;
   while (true) {
     (function(n) {
@@ -863,7 +872,6 @@ function paxos_simple_reorderings_test_topology(num_proposers,
                                      clone(sends, [], 0, j)];
           var unvisited_next_time_s = JSON.stringify(unvisited_next_time);
           assert(!unvisited_seen[unvisited_next_time_s]);
-          log(unvisited_next_time_s);
           unvisited_seen[unvisited_next_time_s] = true;
           unvisited[unvisited.length] = unvisited_next_time;
         }
