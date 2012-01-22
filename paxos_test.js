@@ -73,8 +73,8 @@ function log(msg) { console.log("   " + msg); }
 var to_s = JSON.stringify;
 var blackboard = {};
 
-function mock_comm(name, bb) {
-  bb = bb || blackboard || {};
+function mock_comm(name, quiet) {
+  var bb = blackboard;
   bb.broadcasts = [];
   bb.sends = [];
   var comm = {
@@ -85,7 +85,9 @@ function mock_comm(name, bb) {
       }
     },
     "send": function(dst, msg) {
-      log("comm.heard: " + name + "->" + dst + ", " + JSON.stringify(msg));
+      if (!quiet) {
+        log("comm.heard: " + name + "->" + dst + ", " + JSON.stringify(msg));
+      }
       bb.sends[bb.sends.length] = [dst, msg, name];
     }
   };
@@ -411,7 +413,7 @@ function paxos_1_1_test_cb(err, info) {
 
 // ------------------------------------------------
 
-function test_gen_paxos(num_proposers, num_acceptors) {
+function test_gen_paxos(num_proposers, num_acceptors, quiet) {
   blackboard = { "proposers": [],
                  "acceptors": [],
                  "storages": [] };
@@ -423,7 +425,7 @@ function test_gen_paxos(num_proposers, num_acceptors) {
       mock_storage();
     // Acceptors are named 'A', 'B', etc.
     var acceptor = blackboard.acceptors[blackboard.acceptors.length] =
-      paxos.acceptor(storage, mock_comm(acceptor_name(i)));
+      paxos.acceptor(storage, mock_comm(acceptor_name(i), quiet));
     acceptor_names[acceptor_names.length] = acceptor_name(i);
   }
 
@@ -431,7 +433,7 @@ function test_gen_paxos(num_proposers, num_acceptors) {
     // Proposers are named 'a', 'b', etc.
     var proposer = blackboard.proposers[blackboard.proposers.length] =
       paxos.proposer(proposer_name(i), 1,
-                     0, acceptor_names, mock_comm(proposer_name(i)),
+                     0, acceptor_names, mock_comm(proposer_name(i), quiet),
                      { proposer_timeout: 100 })
   }
 }
@@ -785,7 +787,7 @@ function paxos_simple_reorderings_test() {
   // By simple, there are no dropped messages and no re-proposals.
   //
   var max_proposers = 1;
-  var max_acceptors = 3;
+  var max_acceptors = 2;
 
   if (true) {
     for (var i = 1; i <= max_proposers; i++) {
@@ -808,7 +810,7 @@ function paxos_simple_reorderings_test_topology(num_proposers,
   while (true) {
     (function(n) {
       log("loop... " + n + ", " + num_proposers + ", " + num_acceptors);
-      test_gen_paxos(num_proposers, num_acceptors);
+      test_gen_paxos(num_proposers, num_acceptors, true);
 
       var num_callbacks = 0;
       var num_callback_oks = 0;
