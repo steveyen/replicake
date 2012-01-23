@@ -790,7 +790,7 @@ function paxos_simple_reorderings_test() {
   // By simple, there are no dropped messages and no re-proposals.
   //
   var max_proposers = 1;
-  var max_acceptors = 2;
+  var max_acceptors = 3;
 
   if (true) {
     for (var i = 1; i <= max_proposers; i++) {
@@ -809,14 +809,29 @@ function paxos_simple_reorderings_test_topology(num_proposers,
   var unvisited = [];
   var unvisited_next = 0;
   var unvisited_seen = {};
+  var pruned = 0;
 
   var acceptor_names = [];
   var acceptor_aliases = [];
   for (var i = 0; i < num_acceptors; i++) {
-    acceptor_names.push(acceptor_name(i));
-    acceptor_aliases.push(acceptor_name(i, 'M'));
+    acceptor_names.push(acceptor_name(i));        // Ex: ['A', 'B'].
+    acceptor_aliases.push(acceptor_name(i, 'M')); // Ex: ['M', 'N'].
   }
-  mix(acceptor_names, acceptor_aliases)
+
+  // Example aliases: [[["A","M"],["B","N"]],
+  //                   [["A","N"],["B","M"]]].
+  var aliases = mix(acceptor_names, acceptor_aliases);
+  for (var a = 0; a < aliases.length; a++) {
+    var map = {};
+    var row = aliases[a];
+    for (var i = 0; i < row.length; i++) {
+      var pair = row[i];
+      map[pair[0]] = pair[1];
+    }
+    aliases[a] = map;
+  }
+  // The aliases: [{'A':'M','B':'N'},
+  //               {'A':'N','B':'M'}].
 
   var n = 0;
   while (true) {
@@ -861,26 +876,48 @@ function paxos_simple_reorderings_test_topology(num_proposers,
         unvisited_next++;
       }
 
-      while (blackboard != null &&
+      var done = false; // Flag allows quick exit, such to prune
+                        // previously examined branches.
+
+      while (!done &&
+             blackboard != null &&
              blackboard.sends === sends &&
              sends.length > 0) {
         var next_to_send = sends[0];
         assert(next_to_send);
 
-        for (var j = 1; j < sends.length; j++) {
+        for (var j = 1; !done && j < sends.length; j++) {
           var replay_next_time = clone(replayed_sends);
           replay_next_time[replay_next_time.length] = sends[j];
           var unvisited_next_time = [replay_next_time,
                                      clone(sends, [], 0, j)];
           var unvisited_next_time_s = JSON.stringify(unvisited_next_time);
           assert(!unvisited_seen[unvisited_next_time_s]);
+
+          for (var a = 0; a < aliases.length; a++) {
+            var map = aliases[a];
+            var unvisited_aliased =
+              unvisited_next_time_s.replace(/[A-Z]/g,
+                                            function(x) { return map[x] || x; });
+            if (unvisited_seen[unvisited_aliased]) {
+              pruned++;
+              done = true
+              break;
+            }
+            unvisited_seen[unvisited_aliased] = true;
+          }
           unvisited_seen[unvisited_next_time_s] = true;
-          unvisited[unvisited.length] = unvisited_next_time;
+
+          if (!done) {
+            unvisited[unvisited.length] = unvisited_next_time;
+          }
         }
 
-        replayed_sends[replayed_sends.length] = next_to_send;
-        blackboard.sends = sends = sends.slice(1);
-        transmit(next_to_send);
+        if (!done) {
+          replayed_sends[replayed_sends.length] = next_to_send;
+          blackboard.sends = sends = sends.slice(1);
+          transmit(next_to_send);
+        }
       }
 
       function transmit(to_send) {
@@ -933,6 +970,8 @@ function paxos_simple_reorderings_test_topology(num_proposers,
 
     n++;
   }
+
+  log("pruned " + pruned);
 }
 
 // ------------------------------------------------
