@@ -33,7 +33,7 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   var proposer = paxos.proposer(node_name, node_restarts,
                                 acceptors, 0, comm, opts);
 
-  val propose = proposer.propose; // Keep a private copy of propose().
+  var propose = proposer.propose; // Keep a private copy of propose().
   proposer.propose = null;        // All propose()'s go through acquire().
 
   proposer.acquire = function(cb) {
@@ -44,7 +44,7 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                      if (!err && !is_owner()) {
                        owner = true;
                      }
-                     cb(proposer.is_owner());
+                     cb(proposer.is_owner(), (info || {}).lease_owner);
                    });
   };
 
