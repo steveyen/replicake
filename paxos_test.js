@@ -895,6 +895,9 @@ function paxos_simple_reorderings_test_topology(num_proposers,
           assert(!unvisited_seen[unvisited_next_time_s]);
 
           for (var a = 0; a < aliases.length; a++) {
+            // See if our unvisited_next_time "path" is isomorphic to
+            // some previously visited path so we can skip or prune
+            // that path.  Use aliases to determine isomorphism.
             var map = aliases[a];
             var unvisited_aliased =
               unvisited_next_time_s.replace(/[A-Z]/g,
