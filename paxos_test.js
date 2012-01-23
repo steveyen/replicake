@@ -811,10 +811,12 @@ function paxos_simple_reorderings_test_topology(num_proposers,
   var unvisited_seen = {};
 
   var acceptor_names = [];
+  var acceptor_aliases = [];
   for (var i = 0; i < num_acceptors; i++) {
     acceptor_names.push(acceptor_name(i));
+    acceptor_aliases.push(acceptor_name(i, 'M'));
   }
-  log(to_s(acceptor_names));
+  mix(acceptor_names, acceptor_aliases)
 
   var n = 0;
   while (true) {
@@ -947,17 +949,13 @@ function clone(src, dst, start, skip) {
   return dst;
 }
 
-function mix(abc, xyz, prefix) {
-  prefix = prefix || '';
+function mix(abc, xyz) {
   var rv = [];
   if (abc.length > 0) {
     for (var j = 0; j < xyz.length; j++) {
       var chosen = [abc[0], xyz[j]];
       var rest = mix(abc.slice(1),
-                     clone(xyz, [], 0, j),
-                     prefix + ' ');
-      log(prefix + 'c ' + to_s(chosen));
-      log(prefix + 'r ' + to_s(rest));
+                     clone(xyz, [], 0, j));
       if (rest.length > 0) {
         for (var k = 0; k < rest.length; k++) {
           rv.push([chosen].concat(rest[k]));
