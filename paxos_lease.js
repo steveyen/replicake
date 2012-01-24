@@ -31,7 +31,7 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   };
 
   var proposer = paxos.proposer(node_name, node_restarts,
-                                acceptors, 0, comm, opts);
+                                0, acceptors, comm, opts);
 
   var propose = proposer.propose; // Keep a private copy of propose().
   proposer.propose = null;        // All propose()'s go through acquire().
@@ -53,7 +53,7 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   return proposer;
 };
 
-exports.lease_acceptor = function(comm, opts) {
+exports.lease_voter = function(comm, opts) {
   var highest_proposed_ballot = null;
   var accepted_ballot         = null;
   var accepted_val            = null;
