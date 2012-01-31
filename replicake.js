@@ -71,11 +71,9 @@ exports.mk_node = function(node_name, data_dir, conf, storage, comm) {
   function mk_roster_member(roster_id) {
     assert(roster_member_map[roster_id] == null);
 
-    var data = { start_slot_id: null,
-                 members: null };
+    var data = { start_slot_id: null, members: null };
 
-    // A roster_member has a state machine.
-    var roster_member_state = { curr: 'start' };
+    var roster_member_state = { curr: 'start' }; // State machine.
     var finished_bcast = null;
 
     var leader_name = null;
