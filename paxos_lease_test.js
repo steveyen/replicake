@@ -32,8 +32,8 @@ function test_ok(test_name) {
 
 // ------------------------------------------------
 
-function proposer_name(idx) { return String.fromCharCode(97 + idx); } // a.
-function acceptor_name(idx, base) {
+function acquirer_name(idx) { return String.fromCharCode(97 + idx); } // a.
+function voter_name(idx, base) {
   base = base || 'A';
   return String.fromCharCode(base.charCodeAt(0) + idx);
 }
@@ -55,10 +55,10 @@ function mock_comm(name, quiet) {
   bb.broadcasts = [];
   bb.sends = [];
   var comm = {
-    "broadcast": function(acceptors, msg) {
-      bb.broadcasts[bb.broadcasts.length] = [acceptors, msg];
-      for (var i in acceptors) {
-        comm.send(acceptors[i], msg);
+    "broadcast": function(voters, msg) {
+      bb.broadcasts[bb.broadcasts.length] = [voters, msg];
+      for (var i in voters) {
+        comm.send(voters[i], msg);
       }
     },
     "send": function(dst, msg) {
@@ -71,45 +71,45 @@ function mock_comm(name, quiet) {
   return comm;
 }
 
-function test_gen_lease(num_proposers, num_acceptors, quiet) {
-  blackboard = { "proposers": [],
-                 "acceptors": [] };
+function test_gen_lease(num_acquirers, num_voters, quiet) {
+  blackboard = { "acquirers": [],
+                 "voters": [] };
 
-  var acceptor_names = [];
+  var voter_names = [];
 
-  for (var i = 0; i < num_acceptors; i++) {
-    // Acceptors are named 'A', 'B', etc.
-    var acceptor = blackboard.acceptors[blackboard.acceptors.length] =
-      lease.lease_voter(mock_comm(acceptor_name(i), quiet));
-    acceptor_names[acceptor_names.length] = acceptor_name(i);
+  for (var i = 0; i < num_voters; i++) {
+    // Voters are named 'A', 'B', etc.
+    var voter = blackboard.voters[blackboard.voters.length] =
+      lease.lease_voter(mock_comm(voter_name(i), quiet));
+    voter_names[voter_names.length] = voter_name(i);
   }
 
-  for (var i = 0; i < num_proposers; i++) {
-    // Proposers are named 'a', 'b', etc.
-    var proposer = blackboard.proposers[blackboard.proposers.length] =
+  for (var i = 0; i < num_acquirers; i++) {
+    // Acquirers are named 'a', 'b', etc.
+    var acquirer = blackboard.acquirers[blackboard.acquirers.length] =
       lease.lease_acquirer(200,
-                           proposer_name(i), 1,
-                           acceptor_names,
-                           mock_comm(proposer_name(i), quiet),
-                           { proposer_timeout: 100 })
+                           acquirer_name(i), 1,
+                           voter_names,
+                           mock_comm(acquirer_name(i), quiet),
+                           { acquirer_timeout: 100 })
   }
 }
 
 function drive_comm(cb, label) {
   label = label || "";
-  var proposers = blackboard.proposers;
+  var acquirers = blackboard.acquirers;
   var proposals = blackboard.proposals = [];
-  for (var i = 0; i < proposers.length; i++) {
-    log(label + "acquiring by: " + proposer_name(i));
-    proposals[i] = proposers[i].acquire(cb);
+  for (var i = 0; i < acquirers.length; i++) {
+    log(label + "acquiring by: " + acquirer_name(i));
+    proposals[i] = acquirers[i].acquire(cb);
   }
   drive_comm_proposals(proposals, label);
 }
 
 function drive_comm_proposals(proposals, label) {
   label = label || "";
-  var proposers = blackboard.proposers;
-  var acceptors = blackboard.acceptors;
+  var acquirers = blackboard.acquirers;
+  var voters = blackboard.voters;
   var sends = blackboard.sends;
 
   var i = 0;
@@ -125,7 +125,7 @@ function drive_comm_proposals(proposals, label) {
 
     if (msg.kind == paxos.REQ_PROPOSE ||
         msg.kind == paxos.REQ_ACCEPT) {
-      acceptors[dst_idx].on_msg(src, msg);
+      voters[dst_idx].on_msg(src, msg);
     } else {
       proposals[dst_idx].on_msg(src, msg);
     }
@@ -149,7 +149,7 @@ function lease_basic_api_test() {
 
   var acquirer = lease.lease_acquirer(20, "a", 1, ['A', 'B'],
                                       mock_comm('a', false),
-                                      { "proposer_timeout": 10 });
+                                      { "acquirer_timeout": 10 });
   acquirer.acquire(lease_basic_api_test_cb);
 }
 
@@ -171,7 +171,7 @@ function lease_1_1_test() { // 1 acquirer, 1 voter.
 function lease_1_1_test_cb(is_owner, lease_owner) {
   log('lease_1_1_test_cb: ' + is_owner + ", " + lease_owner);
   assert(is_owner);
-  assert(lease_owner == proposer_name(0));
+  assert(lease_owner == acquirer_name(0));
   test_ok("lease_1_1_test");
 }
 
