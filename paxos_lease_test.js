@@ -80,7 +80,7 @@ function test_gen_lease(num_proposers, num_acceptors, quiet) {
   for (var i = 0; i < num_acceptors; i++) {
     // Acceptors are named 'A', 'B', etc.
     var acceptor = blackboard.acceptors[blackboard.acceptors.length] =
-      lease.lease_acceptor(mock_comm(acceptor_name(i), quiet));
+      lease.lease_voter(mock_comm(acceptor_name(i), quiet));
     acceptor_names[acceptor_names.length] = acceptor_name(i);
   }
 
@@ -163,7 +163,24 @@ function lease_basic_api_test_cb(is_owner, lease_owner) {
 
 // ------------------------------------------------
 
+function lease_1_1_test() { // 1 acquirer, 1 voter.
+  test_start("lease_1_1_test");
+  test_gen_lease(1, 1, false);
+  drive_comm(lease_1_1_test_cb);
+}
+
+function lease_1_1_test_cb(is_owner, lease_owner) {
+  log('lease_1_1_test_cb: ' + is_owner + ", " + lease_owner);
+  assert(is_owner);
+  assert(lease_owner == proposer_name(0));
+
+  test_ok("lease_1_1_test");
+}
+
+// ------------------------------------------------
+
 var tests = [ lease_basic_api_test,
+              lease_1_1_test
             ];
 
 test_ok("...");
