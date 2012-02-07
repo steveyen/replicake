@@ -157,7 +157,6 @@ function lease_basic_api_test_cb(is_owner, lease_owner) {
   log('lease_basic_api_test_cb: ' + is_owner + ", " + lease_owner);
   assert(!is_owner);
   assert(!lease_owner);
-
   test_ok("lease_basic_api_test");
 }
 
@@ -173,7 +172,6 @@ function lease_1_1_test_cb(is_owner, lease_owner) {
   log('lease_1_1_test_cb: ' + is_owner + ", " + lease_owner);
   assert(is_owner);
   assert(lease_owner == proposer_name(0));
-
   test_ok("lease_1_1_test");
 }
 
