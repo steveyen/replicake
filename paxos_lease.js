@@ -41,10 +41,11 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                 "lease_timeout" : lease_timeout };
     return propose(val,
                    function(err, info) {
-                     if (!err && !is_owner()) {
+                     if (!err && !proposer.is_owner()) {
                        owner = true;
                      }
-                     cb(proposer.is_owner(), (info || {}).lease_owner);
+                     cb(proposer.is_owner(),
+                        (info || { "accepted_val": {} }).accepted_val.lease_owner);
                    });
   };
 
