@@ -246,7 +246,7 @@ exports.acceptor = function(storage, comm, opts) {
     msg.slot = req.slot;
     msg.ballot = req.ballot;
     if (opts.respond_preprocess) {
-      msg = opts.respond_preproces(msg);
+      msg = opts.respond_preprocess(msg);
     }
     comm.send(req.sender, msg);
     tot_accept_send = tot_accept_send + 1;
