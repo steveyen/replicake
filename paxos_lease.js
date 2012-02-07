@@ -29,6 +29,7 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                          lease_timeout);
     }
   };
+  opts.proposer_timeout = opts.proposer_timeout || opts.acquirer_timeout;
 
   var proposer = paxos.proposer(node_name, node_restarts,
                                 0, acceptors, comm, opts);
