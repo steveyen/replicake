@@ -8,7 +8,8 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                                   node_name, node_restarts,
                                   acceptors, comm, opts) {
   var timer = null;
-  var owner = false; // Tri-state: true, false, 'timeout'.
+  var is_owner = false; // Tri-state: true, false, 'timeout'.
+  var lease_owner = null;
 
   opts = opts || {};
   opts.msg_preprocess = function(src, msg) {
@@ -25,7 +26,10 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
       if (timer) {
         clearTimeout(timer);
       }
-      timer = setTimeout(function() { owner = 'timeout'; },
+      timer = setTimeout(function() {
+                           is_owner = 'timeout';
+                           lease_owner = null;
+                         },
                          lease_timeout);
     }
   };
@@ -34,25 +38,31 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   var proposer = paxos.proposer(node_name, node_restarts,
                                 0, acceptors, comm, opts);
 
-  var propose = proposer.propose; // Keep a private copy of propose().
-  proposer.propose = null;        // All propose()'s go through acquire().
+  var acquirer = {};
 
-  proposer.acquire = function(cb) {
+  acquirer.acquire = function(cb) {
     var val = { "lease_owner"   : node_name,
                 "lease_timeout" : lease_timeout };
-    return propose(val,
-                   function(err, info) {
-                     if (!err && !proposer.is_owner()) {
-                       owner = true;
-                     }
-                     cb(proposer.is_owner(),
-                        (info || { "accepted_val": {} }).accepted_val.lease_owner);
-                   });
+    return proposer.propose(val,
+                            function(err, info) {
+                              is_owner = false;
+                              lease_owner = null;
+                              if (!err) {
+                                is_owner = true;
+                                if (info &&
+                                    info.accepted_val) {
+                                  lease_owner = info.accepted_val.lease_owner;
+                                }
+                                assert(lease_owner == node_name);
+                              }
+                              cb(err);
+                            });
   };
 
-  proposer.is_owner = function() { return owner == true; };
+  acquirer.is_owner = function() { return is_owner == true; };
+  acquirer.lease_owner = function() { return lease_owner; };
 
-  return proposer;
+  return acquirer;
 };
 
 exports.lease_voter = function(comm, opts) {

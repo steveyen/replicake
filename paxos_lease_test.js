@@ -17,6 +17,7 @@ var blackboard = {};
 
 function test_start(test_name) {
   console.log(".. " + test_name);
+  blackboard = {};
 }
 
 function test_ok(test_name) {
@@ -134,11 +135,6 @@ function drive_comm_proposals(proposals, label) {
   }
 }
 
-function expect_not_acquired(is_owner, lease_owner) {
-  log('expect_not_acquired: ' + is_owner + ", " + lease_owner);
-  assert(!is_owner);
-}
-
 // ------------------------------------------------
 
 function lease_basic_api_test() {
@@ -150,13 +146,14 @@ function lease_basic_api_test() {
   var acquirer = lease.lease_acquirer(20, "a", 1, ['A', 'B'],
                                       mock_comm('a', false),
                                       { "acquirer_timeout": 10 });
+  blackboard.acquirer = acquirer;
   acquirer.acquire(lease_basic_api_test_cb);
 }
 
-function lease_basic_api_test_cb(is_owner, lease_owner) {
-  log('lease_basic_api_test_cb: ' + is_owner + ", " + lease_owner);
-  assert(!is_owner);
-  assert(!lease_owner);
+function lease_basic_api_test_cb(err) {
+  assert(err);
+  assert(!blackboard.acquirer.is_owner());
+  assert(!blackboard.acquirer.lease_owner());
   test_ok("lease_basic_api_test");
 }
 
@@ -168,10 +165,10 @@ function lease_1_1_test() { // 1 acquirer, 1 voter.
   drive_comm(lease_1_1_test_cb);
 }
 
-function lease_1_1_test_cb(is_owner, lease_owner) {
-  log('lease_1_1_test_cb: ' + is_owner + ", " + lease_owner);
-  assert(is_owner);
-  assert(lease_owner == acquirer_name(0));
+function lease_1_1_test_cb(err) {
+  assert(!err);
+  assert(blackboard.acquirers[0].is_owner());
+  assert(blackboard.acquirers[0].lease_owner() == acquirer_name(0));
   test_ok("lease_1_1_test");
 }
 
