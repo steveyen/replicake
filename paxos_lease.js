@@ -94,7 +94,7 @@ exports.lease_voter = function(comm, opts) {
     "slot_save_accepted": function(slot, ballot, val, cb) {
       assert(slot == 0);
       accepted_ballot = ballot;
-      accepted_val    = null;
+      accepted_val    = val;
 
       if (timer) {
         clearTimeout(timer);
@@ -107,5 +107,12 @@ exports.lease_voter = function(comm, opts) {
     }
   };
 
-  return paxos.acceptor(lease_storage, comm, opts);
+  var acceptor = paxos.acceptor(lease_storage, comm, opts);
+
+  return { "on_msg": acceptor.on_msg,
+           "stats": acceptor.stats,
+           "lease_owner": function() {
+             return accepted_val && accepted_val.lease_owner;
+           }
+         };
 };

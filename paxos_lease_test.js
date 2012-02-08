@@ -172,10 +172,18 @@ function lease_1_1_test_cb(err) {
   assert(blackboard.acquirers[0].is_owner());
   assert(blackboard.acquirers[0].lease_owner() == acquirer_name(0));
 
+  for (var i = 0; i < blackboard.voters.length; i++) {
+    assert(blackboard.voters[i].lease_owner() == acquirer_name(0));
+  }
+
   setTimeout(function() {
       log("check lease expired"); // Lease should have expired.
       assert(!blackboard.acquirers[0].is_owner());
       assert(!blackboard.acquirers[0].lease_owner());
+
+      for (var i = 0; i < blackboard.voters.length; i++) {
+        assert(!blackboard.voters[i].lease_owner())
+      }
 
       if (blackboard.acquire_attempts < 3) { // Reacquisition tests.
         blackboard.acquire_attempts++;
