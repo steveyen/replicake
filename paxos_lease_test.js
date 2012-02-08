@@ -162,10 +162,12 @@ function lease_basic_api_test_cb(err) {
 function lease_1_1_test() { // 1 acquirer, 1 voter.
   test_start("lease_1_1_test");
   test_gen_lease(1, 1, 20, false);
+  blackboard.acquire_attempts = 1;
   drive_comm(lease_1_1_test_cb);
 }
 
 function lease_1_1_test_cb(err) {
+  log("lease_1_1_test_cb " + to_s(err));
   assert(!err);
   assert(blackboard.acquirers[0].is_owner());
   assert(blackboard.acquirers[0].lease_owner() == acquirer_name(0));
@@ -174,8 +176,15 @@ function lease_1_1_test_cb(err) {
       log("check lease expired"); // Lease should have expired.
       assert(!blackboard.acquirers[0].is_owner());
       assert(!blackboard.acquirers[0].lease_owner());
-      test_ok("lease_1_1_test");
-    }, 21);
+
+      if (blackboard.acquire_attempts < 3) { // Reacquisition tests.
+        blackboard.acquire_attempts++;
+        blackboard.sends.length = 0;
+        drive_comm(lease_1_1_test_cb);
+      } else {
+        test_ok("lease_1_1_test");
+      }
+    }, 30);
 }
 
 // ------------------------------------------------
