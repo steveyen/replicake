@@ -72,7 +72,7 @@ function mock_comm(name, quiet) {
   return comm;
 }
 
-function test_gen_lease(num_acquirers, num_voters, quiet) {
+function test_gen_lease(num_acquirers, num_voters, lease_timeout, quiet) {
   blackboard = { "acquirers": [],
                  "voters": [] };
 
@@ -88,7 +88,7 @@ function test_gen_lease(num_acquirers, num_voters, quiet) {
   for (var i = 0; i < num_acquirers; i++) {
     // Acquirers are named 'a', 'b', etc.
     var acquirer = blackboard.acquirers[blackboard.acquirers.length] =
-      lease.lease_acquirer(200,
+      lease.lease_acquirer(lease_timeout,
                            acquirer_name(i), 1,
                            voter_names,
                            mock_comm(acquirer_name(i), quiet),
@@ -161,7 +161,7 @@ function lease_basic_api_test_cb(err) {
 
 function lease_1_1_test() { // 1 acquirer, 1 voter.
   test_start("lease_1_1_test");
-  test_gen_lease(1, 1, false);
+  test_gen_lease(1, 1, 200, false);
   drive_comm(lease_1_1_test_cb);
 }
 
