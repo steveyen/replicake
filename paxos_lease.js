@@ -59,8 +59,9 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                             });
   };
 
-  acquirer.is_owner = function() { return is_owner == true; };
+  acquirer.is_owner    = function() { return is_owner == true; };
   acquirer.lease_owner = function() { return lease_owner; };
+  acquirer.stats       = proposer.stats;
 
   return acquirer;
 };
