@@ -201,10 +201,57 @@ function lease_1_acquirer_test(name, num_voters) {
 
 // ------------------------------------------------
 
+function lease_2_acquirer_test(name, num_voters) {
+  var bb = null;
+
+  function lease_test() {
+    test_start(name);
+    test_gen_lease(2, num_voters, 20, false);
+
+    bb = blackboard;
+    bb.cb_count = 0;
+
+    var acquirers = bb.acquirers;
+    var proposals = bb.proposals = [];
+    for (var i = 0; i < acquirers.length; i++) {
+      var cb = (function(i) {
+          return function(err) {
+            bb.cb_count++;
+            log("lease_2_acquirer_cb " + acquirer_name(i) +
+                " " + err + " " + bb.cb_count);
+            if (bb.cb_count >= 2) {
+              var owner = null;
+              for (var j = 0; j < bb.acquirers.length; j++) {
+                if (bb.acquirers[j].is_owner()) {
+                  assert(!owner);
+                  owner = bb.acquirers[j].lease_owner();
+                  assert(owner);
+                }
+              }
+              for (var j = 0; j < bb.acquirers.length; j++) {
+                assert(bb.acquirers[j].lease_owner() == null ||
+                       bb.acquirers[j].lease_owner() == owner);
+              }
+              test_ok(name);
+            }
+          }
+        })(i);
+      proposals[i] = acquirers[i].acquire(cb);
+    }
+    drive_comm_proposals(proposals);
+  }
+
+  return lease_test;
+}
+
+// ------------------------------------------------
+
 var tests = [ lease_basic_api_test,
-              lease_1_acquirer_test("lease_1_test", 1, 1),
-              lease_1_acquirer_test("lease_2_test", 1, 2),
-              lease_1_acquirer_test("lease_3_test", 1, 3)
+              lease_1_acquirer_test("lease_1_voter_test", 1),
+              lease_1_acquirer_test("lease_2_voter_test", 2),
+              lease_1_acquirer_test("lease_3_voter_test", 3),
+              lease_1_acquirer_test("lease_10_voter_test", 10),
+              lease_2_acquirer_test("lease_2_1_test", 1),
             ];
 
 test_ok("...");

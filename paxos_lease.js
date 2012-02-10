@@ -37,7 +37,6 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
 
   var proposer = paxos.proposer(node_name, node_restarts,
                                 0, acceptors, comm, opts);
-
   var acquirer = {};
 
   acquirer.acquire = function(cb) {
