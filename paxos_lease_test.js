@@ -201,14 +201,12 @@ function lease_1_acquirer_test(name, num_voters) {
 
 // ------------------------------------------------
 
-function lease_2_acquirer_test(name, num_voters) {
-  var bb = null;
-
+function lease_multi_acquirer_test(name, num_acquirers, num_voters) {
   function lease_test() {
     test_start(name);
-    test_gen_lease(2, num_voters, 20, false);
+    test_gen_lease(num_acquirers, num_voters, 20, false);
 
-    bb = blackboard;
+    var bb = blackboard;
     bb.cb_count = 0;
 
     var acquirers = bb.acquirers;
@@ -217,8 +215,6 @@ function lease_2_acquirer_test(name, num_voters) {
       var cb = (function(i) {
           return function(err) {
             bb.cb_count++;
-            log("lease_2_acquirer_cb " + acquirer_name(i) +
-                " " + err + " " + bb.cb_count);
             if (bb.cb_count >= 2) {
               var owner = null;
               for (var j = 0; j < bb.acquirers.length; j++) {
@@ -232,7 +228,9 @@ function lease_2_acquirer_test(name, num_voters) {
                 assert(bb.acquirers[j].lease_owner() == null ||
                        bb.acquirers[j].lease_owner() == owner);
               }
-              test_ok(name);
+              if (bb == blackboard) {
+                test_ok(name);
+              }
             }
           }
         })(i);
@@ -251,8 +249,12 @@ var tests = [ lease_basic_api_test,
               lease_1_acquirer_test("lease_2_voter_test", 2),
               lease_1_acquirer_test("lease_3_voter_test", 3),
               lease_1_acquirer_test("lease_10_voter_test", 10),
-              lease_2_acquirer_test("lease_2_1_test", 1),
-              lease_2_acquirer_test("lease_2_2_test", 2),
+              lease_multi_acquirer_test("lease_2_1_test", 2, 1),
+              lease_multi_acquirer_test("lease_2_2_test", 2, 2),
+              lease_multi_acquirer_test("lease_3_1_test", 3, 1),
+              lease_multi_acquirer_test("lease_3_2_test", 3, 2),
+              lease_multi_acquirer_test("lease_3_10_test", 3, 10),
+              lease_multi_acquirer_test("lease_10_10_test", 10, 10)
             ];
 
 test_ok("...");
