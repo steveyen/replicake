@@ -252,6 +252,7 @@ var tests = [ lease_basic_api_test,
               lease_1_acquirer_test("lease_3_voter_test", 3),
               lease_1_acquirer_test("lease_10_voter_test", 10),
               lease_2_acquirer_test("lease_2_1_test", 1),
+              lease_2_acquirer_test("lease_2_2_test", 2),
             ];
 
 test_ok("...");
