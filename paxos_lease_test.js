@@ -203,7 +203,8 @@ function lease_simple_test(name, num_acquirers, num_voters) {
 
 var tests = [ lease_basic_api_test,
               lease_simple_test("lease_1_1_test", 1, 1),
-              lease_simple_test("lease_1_2_test", 1, 2)
+              lease_simple_test("lease_1_2_test", 1, 2),
+              lease_simple_test("lease_1_2_test", 1, 3)
             ];
 
 test_ok("...");
