@@ -40,20 +40,20 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   var acquirer = {};
 
   acquirer.acquire = function(cb) {
-    var val = { "lease_owner"   : node_name,
-                "lease_timeout" : lease_timeout };
+    var val = { "lease_owner":   node_name,
+                "lease_timeout": lease_timeout };
     return proposer.propose(val,
                             function(err, info) {
                               is_owner = false;
                               lease_owner = null;
                               if (!err) {
                                 is_owner = true;
-                                if (info &&
-                                    info.accepted_val) {
-                                  lease_owner = info.accepted_val.lease_owner;
-                                }
-                                assert(lease_owner == node_name);
                               }
+                              if (info &&
+                                  info.accepted_val) {
+                                lease_owner = info.accepted_val.lease_owner;
+                              }
+                              assert(!is_owner || lease_owner == node_name);
                               cb(err);
                             });
   };

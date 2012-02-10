@@ -106,7 +106,7 @@ exports.proposer = function(node_name, node_restarts, slot,
               cb_phase(vkind[2],
                        { "highest_proposed_ballot": res.highest_proposed_ballot,
                          "accepted_ballot":         accepted_ballot,
-                         "accepted_val":            accepted_val || val });
+                         "accepted_val":            accepted_val });
               return;
             }
           } else {
