@@ -159,10 +159,10 @@ function lease_basic_api_test_cb(err) {
 
 // ------------------------------------------------
 
-function lease_simple_test(name, num_acquirers, num_voters) {
-  function lease_test() { // 1 acquirer, 1 voter.
+function lease_1_acquirer_test(name, num_voters) {
+  function lease_test() { // 1 acquirer, multiple voters.
     test_start(name);
-    test_gen_lease(num_acquirers, num_voters, 20, false);
+    test_gen_lease(1, num_voters, 20, false);
     blackboard.acquire_attempts = 1;
     drive_comm(lease_test_cb);
   }
@@ -202,9 +202,9 @@ function lease_simple_test(name, num_acquirers, num_voters) {
 // ------------------------------------------------
 
 var tests = [ lease_basic_api_test,
-              lease_simple_test("lease_1_1_test", 1, 1),
-              lease_simple_test("lease_1_2_test", 1, 2),
-              lease_simple_test("lease_1_2_test", 1, 3)
+              lease_1_acquirer_test("lease_1_test", 1, 1),
+              lease_1_acquirer_test("lease_2_test", 1, 2),
+              lease_1_acquirer_test("lease_3_test", 1, 3)
             ];
 
 test_ok("...");
