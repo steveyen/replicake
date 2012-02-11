@@ -830,9 +830,9 @@ function paxos_simple_reorderings_test_topology(num_proposers,
     }
     aliases[a] = map;
   }
+
   // The aliases: [{'A':'M','B':'N'},
   //               {'A':'N','B':'M'}].
-
   var n = 0;
   while (true) {
     (function(n) {
