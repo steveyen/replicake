@@ -876,8 +876,8 @@ function paxos_simple_reorderings_test_topology(num_proposers,
         unvisited_next++;
       }
 
-      var done = false; // Flag allows quick exit, such to prune
-                        // previously examined branches.
+      var done = false; // Flag allows quick exit, such as to
+                        // prune previously examined branches.
 
       while (!done &&
              blackboard != null &&
