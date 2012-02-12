@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+var util   = require('util');
 var assert = require('assert');
 var paxos  = require('./paxos');
 
@@ -805,7 +806,11 @@ function paxos_simple_reorderings_test() {
 }
 
 function paxos_simple_reorderings_test_topology(num_proposers,
-                                                num_acceptors) {
+                                                num_acceptors,
+                                                simulate_message_drops) {
+  var drops = simulate_message_drops ? [0, 1] : [0];
+  var DROP_IDX = 3; // Array slot.
+
   var unvisited = [];
   var unvisited_next = 0;
   var unvisited_seen = {};
@@ -860,6 +865,10 @@ function paxos_simple_reorderings_test_topology(num_proposers,
         proposals[i] = proposers[i].propose(val, mk_callback(i));
       }
 
+      for (var i = 0; i < sends.length; i++) {
+        sends[i][DROP_IDX] = 0;
+      }
+
       var replayed_sends = [];
 
       if (unvisited_next < unvisited.length) {
@@ -887,32 +896,36 @@ function paxos_simple_reorderings_test_topology(num_proposers,
         assert(next_to_send);
 
         for (var j = 1; !done && j < sends.length; j++) {
-          var replay_next_time = clone(replayed_sends);
-          replay_next_time[replay_next_time.length] = sends[j];
-          var unvisited_next_time = [replay_next_time,
-                                     clone(sends, [], 0, j)];
-          var unvisited_next_time_s = JSON.stringify(unvisited_next_time);
-          assert(!unvisited_seen[unvisited_next_time_s]);
+          for (var k = 0; !done && k < drops.length; k++) {
+            var replay_next_time = clone(replayed_sends);
+            var chosen_next_time = sends[j];
+            chosen_next_time[DROP_IDX] = drops[k];
+            replay_next_time[replay_next_time.length] = chosen_next_time;
+            var unvisited_next_time = [replay_next_time,
+                                       clone(sends, [], 0, j)];
+            var unvisited_next_time_s = JSON.stringify(unvisited_next_time);
+            assert(!unvisited_seen[unvisited_next_time_s]);
 
-          for (var a = 0; a < aliases.length; a++) {
-            // See if our unvisited_next_time "path" is isomorphic to
-            // some previously visited path so we can skip or prune
-            // that path.  Use aliases to determine isomorphism.
-            var map = aliases[a];
-            var unvisited_aliased =
-              unvisited_next_time_s.replace(/[A-Z]/g,
-                                            function(x) { return map[x] || x; });
-            if (unvisited_seen[unvisited_aliased]) {
-              pruned++;
-              done = true
-              break;
+            for (var a = 0; a < aliases.length; a++) {
+              // See if our unvisited_next_time "path" is isomorphic to
+              // some previously visited path so we can skip or prune
+              // that path.  Use aliases to determine isomorphism.
+              var map = aliases[a];
+              var unvisited_aliased =
+                unvisited_next_time_s.replace(/[A-Z]/g,
+                                              function(x) { return map[x] || x; });
+              if (unvisited_seen[unvisited_aliased]) {
+                pruned++;
+                done = true;
+                break;
+              }
+              unvisited_seen[unvisited_aliased] = true;
             }
-            unvisited_seen[unvisited_aliased] = true;
-          }
-          unvisited_seen[unvisited_next_time_s] = true;
+            unvisited_seen[unvisited_next_time_s] = true;
 
-          if (!done) {
-            unvisited[unvisited.length] = unvisited_next_time;
+            if (!done) {
+              unvisited[unvisited.length] = unvisited_next_time;
+            }
           }
         }
 
@@ -924,6 +937,10 @@ function paxos_simple_reorderings_test_topology(num_proposers,
       }
 
       function transmit(to_send) {
+        if (to_send[DROP_IDX]) {
+          return; // Simulate bad network with dropped mesage.
+        }
+
         var dst = to_send[0];
         var dst_idx = name_idx(dst);
         var msg = to_send[1];
@@ -981,6 +998,8 @@ function paxos_simple_reorderings_test_topology(num_proposers,
 
 function clone(src, dst, start, skip) {
   dst = dst || [];
+  assert(util.isArray(src));
+  assert(util.isArray(dst));
   start = start || 0;
   for (var i = start; i < src.length; i++) {
     if (skip == null ||
