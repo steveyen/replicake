@@ -211,7 +211,9 @@ exports.acceptor = function(storage, comm, opts) {
                   if (!err) {
                     tot_accept_accepted = tot_accept_accepted + 1;
                     highest_proposed_ballot = req.ballot;
-                    respond(RES_ACCEPTED);
+                    respond(RES_ACCEPTED,
+                            { "accepted_ballot": req.ballot,
+                              "accepted_val":    req.val });
                   } else {
                     tot_accept_nack_storage = tot_accept_nack_storage + 1;
                     respond(RES_NACK);
