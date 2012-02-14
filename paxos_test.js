@@ -798,7 +798,7 @@ function paxos_simple_reorderings_test() {
     for (var i = 1; i <= max_proposers; i++) {
       for (var j = 1; j <= max_acceptors; j++) {
         log("test " + i + " proposers, " + j + " acceptors");
-        paxos_simple_reorderings_test_topology(i, j);
+        paxos_sim_topology(i, j);
       }
     }
   }
@@ -819,7 +819,7 @@ function paxos_simple_dropped_message_test() {
     for (var i = 1; i <= max_proposers; i++) {
       for (var j = 1; j <= max_acceptors; j++) {
         log("test " + i + " proposers, " + j + " acceptors");
-        paxos_simple_reorderings_test_topology(i, j, true);
+        paxos_sim_topology(i, j, true);
       }
     }
   }
@@ -827,9 +827,9 @@ function paxos_simple_dropped_message_test() {
   test_ok("paxos_simple_dropped_message_test");
 }
 
-function paxos_simple_reorderings_test_topology(num_proposers,
-                                                num_acceptors,
-                                                simulate_message_drops) {
+function paxos_sim_topology(num_proposers,
+                            num_acceptors,
+                            simulate_message_drops) {
   var drops = simulate_message_drops ? [1, 0] : [0];
   var DROP_IDX = 3; // Array slot.
 
