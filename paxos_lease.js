@@ -2,7 +2,9 @@ var assert = require('assert');
 var paxos  = require('./paxos');
 
 // Algorithm adapted from: "PaxosLease: Diskless Paxos for Leases",
-// by Trencseni, Gazso, Reinhardt.
+// by Trencseni, Gazso, Reinhardt.  This code specializes the
+// paxos.js implementation by providing a lease acquirer (wraps
+// a paxos proposer) and a lease voter (wraps a paxos acceptor).
 //
 exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                                   node_name, node_restarts,
@@ -12,7 +14,7 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   var lease_owner = null;
 
   opts = opts || {};
-  opts.msg_preprocess = function(src, msg) {
+  opts.on_msg_preprocess = function(src, msg) {
     if (msg.kind == paxos.RES_PROPOSED) {
       if (msg.accepted_ballot != null ||
           msg.accepted_val != null) {

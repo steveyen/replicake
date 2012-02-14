@@ -77,8 +77,8 @@ exports.proposer = function(node_name, node_restarts, slot,
         }
         timer = null;
 
-        if (opts.msg_preprocess) {
-          res = opts.msg_preprocess(src, res);
+        if (opts.on_msg_preprocess) {
+          res = opts.on_msg_preprocess(src, res);
         }
 
         // Stop when recv()'ed votes reach tally quorum, either yea or nay.
