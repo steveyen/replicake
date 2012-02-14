@@ -110,7 +110,8 @@ function mock_storage() {
         cb(false, {
             "highest_proposed_ballot": slot.highest_proposed_ballot,
             "accepted_ballot":         slot.accepted_ballot,
-            "accepted_val":            slot.accepted_val });
+            "accepted_val":            slot.accepted_val
+           });
       } else {
         cb("missing");
       }
@@ -805,10 +806,31 @@ function paxos_simple_reorderings_test() {
   test_ok("paxos_simple_reorderings_test");
 }
 
+function paxos_simple_dropped_message_test() {
+  test_start("paxos_simple_dropped_message_test");
+
+  // Test paxos will some simple single lost messages.
+  // No reproposals.
+  //
+  var max_proposers = 3;
+  var max_acceptors = 1;
+
+  if (true) {
+    for (var i = 1; i <= max_proposers; i++) {
+      for (var j = 1; j <= max_acceptors; j++) {
+        log("test " + i + " proposers, " + j + " acceptors");
+        paxos_simple_reorderings_test_topology(i, j, true);
+      }
+    }
+  }
+
+  test_ok("paxos_simple_dropped_message_test");
+}
+
 function paxos_simple_reorderings_test_topology(num_proposers,
                                                 num_acceptors,
                                                 simulate_message_drops) {
-  var drops = simulate_message_drops ? [0, 1] : [0];
+  var drops = simulate_message_drops ? [1, 0] : [0];
   var DROP_IDX = 3; // Array slot.
 
   var unvisited = [];
@@ -895,16 +917,25 @@ function paxos_simple_reorderings_test_topology(num_proposers,
         var next_to_send = sends[0];
         assert(next_to_send);
 
-        for (var j = 1; !done && j < sends.length; j++) {
+        var max_j = sends.length;
+        if (max_j >= 2 && simulate_message_drops) {
+          max_j = 2; // No reorderings if we're simulating message drops.
+        }
+
+        for (var j = 1; !done && j < max_j; j++) {
           for (var k = 0; !done && k < drops.length; k++) {
             var replay_next_time = clone(replayed_sends);
+            for (var m = 0; m < replay_next_time.length; m++) {
+              replay_next_time[m][DROP_IDX] = 0;
+            }
+
             var chosen_next_time = sends[j];
             chosen_next_time[DROP_IDX] = drops[k];
             replay_next_time[replay_next_time.length] = chosen_next_time;
             var unvisited_next_time = [replay_next_time,
                                        clone(sends, [], 0, j)];
             var unvisited_next_time_s = JSON.stringify(unvisited_next_time);
-            assert(!unvisited_seen[unvisited_next_time_s]);
+            // assert(!unvisited_seen[unvisited_next_time_s]);
 
             for (var a = 0; a < aliases.length; a++) {
               // See if our unvisited_next_time "path" is isomorphic to
@@ -937,14 +968,15 @@ function paxos_simple_reorderings_test_topology(num_proposers,
       }
 
       function transmit(to_send) {
-        if (to_send[DROP_IDX]) {
-          return; // Simulate bad network with dropped mesage.
-        }
-
         var dst = to_send[0];
         var dst_idx = name_idx(dst);
         var msg = to_send[1];
         var src = to_send[2];
+
+        if (to_send[DROP_IDX]) {
+          log(n + "-drop: " + src + "->" + dst + ", " + to_s(msg));
+          return; // Simulate bad network with dropped mesage.
+        }
 
         log(n + "-xmit: " + src + "->" + dst + ", " + to_s(msg));
 
@@ -965,6 +997,9 @@ function paxos_simple_reorderings_test_topology(num_proposers,
 
           if (!err) {
             num_callback_oks++;
+
+            log(label + ' vals ' + to_s(accepted_val)
+                + ' ' + to_s(info.accepted_val));
 
             assert(!accepted_val ||
                    (accepted_val == info.accepted_val));
@@ -1054,6 +1089,7 @@ var tests = [ propose_phase_test,
               paxos_1_3_gensend_test,
               paxos_2_3_gensend_test,
               paxos_simple_reorderings_test,
+              paxos_simple_dropped_message_test
             ];
 
 test_ok("...");
