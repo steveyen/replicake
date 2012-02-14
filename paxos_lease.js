@@ -9,9 +9,21 @@ var paxos  = require('./paxos');
 exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                                   node_name, node_restarts,
                                   acceptors, comm, opts) {
-  var timer = null;
   var is_owner = false; // Tri-state: true, false, 'timeout'.
   var lease_owner = null;
+  var lease_timer = null;
+  var renew_timer = null;
+
+  function clear_timers() {
+    if (lease_timer) {
+      clearTimeout(lease_timer);
+      lease_timer = null;
+    }
+    if (renew_timer) {
+      clearTimeout(renew_timer);
+      renew_timer = null;
+    }
+  }
 
   opts = opts || {};
   opts.on_msg_preprocess = function(src, msg) {
@@ -25,14 +37,21 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
   };
   opts.on_phase_complete = function(kind, err) {
     if (kind == paxos.RES_PROPOSED && !err) {
-      if (timer) {
-        clearTimeout(timer);
+      clear_timers();
+
+      lease_timer = setTimeout(function() {
+          is_owner = 'timeout';
+          lease_owner = null;
+        },
+        lease_timeout);
+
+      if (opts.renew_timeout) {
+        assert(lease_timeout > opts.renew_timeout);
+        renew_timer = setTimeout(function() {
+            acquirer.acquire(opts.on_renew || function(err) {});
+          },
+          opts.renew_timeout);
       }
-      timer = setTimeout(function() {
-                           is_owner = 'timeout';
-                           lease_owner = null;
-                         },
-                         lease_timeout);
     }
   };
   opts.proposer_timeout = opts.proposer_timeout || opts.acquirer_timeout;
@@ -50,6 +69,8 @@ exports.lease_acquirer = function(lease_timeout, // In milliseconds.
                               lease_owner = null;
                               if (!err) {
                                 is_owner = true;
+                              } else {
+                                clear_timers();
                               }
                               if (info &&
                                   info.accepted_val) {
