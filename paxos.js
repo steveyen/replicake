@@ -72,9 +72,8 @@ exports.proposer = function(node_name, node_restarts, slot,
         if (!timer) {
           return; // Drop/ignore late messages.
         }
-        if (timer) {
-          clearTimeout(timer);
-        }
+
+        clearTimeout(timer);
         timer = null;
 
         if (opts.on_msg_preprocess) {
