@@ -72,9 +72,13 @@ function mock_comm(name, quiet) {
   return comm;
 }
 
-function test_gen_lease(num_acquirers, num_voters, lease_timeout, quiet) {
+function test_gen_lease(num_acquirers, num_voters, lease_timeout,
+                        quiet, opts) {
   blackboard = { "acquirers": [],
                  "voters": [] };
+
+  opts = opts || {};
+  opts.acquirer_timeout = opts.acquirer_timeout || 100;
 
   var voter_names = [];
 
@@ -91,8 +95,7 @@ function test_gen_lease(num_acquirers, num_voters, lease_timeout, quiet) {
       lease.lease_acquirer(lease_timeout,
                            acquirer_name(i), 1,
                            voter_names,
-                           mock_comm(acquirer_name(i), quiet),
-                           { acquirer_timeout: 100 })
+                           mock_comm(acquirer_name(i), quiet), opts);
   }
 }
 
@@ -244,6 +247,44 @@ function lease_multi_acquirer_test(name, num_acquirers, num_voters) {
 
 // ------------------------------------------------
 
+function lease_1_renew_test(name, num_voters, max_renewals) {
+  function lease_test() { // 1 acquirer, multiple voters.
+    test_start(name);
+
+    var opts = {
+      "renew_timeout": 15,
+      "on_renew": function(err) {
+        blackboard.renewals++;
+        log("renewal " + blackboard.renewals);
+        if (blackboard.renewals >= max_renewals) {
+          opts.renew_timeout = 0;
+          test_ok(name);
+        } else {
+          drive_comm(lease_test_cb);
+        }
+      }
+    };
+    test_gen_lease(1, num_voters, 20, false, opts);
+    blackboard.renewals = 0;
+    drive_comm(lease_test_cb);
+  }
+
+  function lease_test_cb(err) {
+    log(name + "_cb " + to_s(err));
+    assert(!err);
+    assert(blackboard.acquirers[0].is_owner());
+    assert(blackboard.acquirers[0].lease_owner() == acquirer_name(0));
+
+    for (var i = 0; i < blackboard.voters.length; i++) {
+      assert(blackboard.voters[i].lease_owner() == acquirer_name(0));
+    }
+  }
+
+  return lease_test;
+}
+
+// ------------------------------------------------
+
 var tests = [ lease_basic_api_test,
               lease_1_acquirer_test("lease_1_voter_test", 1),
               lease_1_acquirer_test("lease_2_voter_test", 2),
@@ -254,7 +295,9 @@ var tests = [ lease_basic_api_test,
               lease_multi_acquirer_test("lease_3_1_test", 3, 1),
               lease_multi_acquirer_test("lease_3_2_test", 3, 2),
               lease_multi_acquirer_test("lease_3_10_test", 3, 10),
-              lease_multi_acquirer_test("lease_10_10_test", 10, 10)
+              lease_multi_acquirer_test("lease_10_10_test", 10, 10),
+              // lease_1_renew_test("lease_renew_1_voter_test", 1, 3),
+              // lease_1_renew_test("lease_renew_2_voter_test", 2, 3),
             ];
 
 test_ok("...");
