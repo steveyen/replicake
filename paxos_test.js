@@ -990,8 +990,6 @@ function paxos_sim_topology(num_proposers,
 
       function mk_callback(label) {
         return function(err, info) {
-          log(n + "-callback: " + label + ", " + err + ", " + to_s(info));
-
           num_callbacks++;
           assert(num_callbacks <= num_proposers);
 
